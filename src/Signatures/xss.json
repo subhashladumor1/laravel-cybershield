@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Script Tag",
+        "regex": "/<script.*?>.*?<\\/script>/is"
+    },
+    {
+        "name": "JS Event Handler",
+        "regex": "/on(load|click|mouseover|error)=/i"
+    },
+    {
+        "name": "Alert/Prompt",
+        "regex": "/(alert|prompt|confirm)\\(/i"
+    }
+]

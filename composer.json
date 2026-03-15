@@ -1,0 +1,47 @@
+{
+    "name": "cybershield/laravel-cybershield",
+    "description": "Enterprise-grade security tools for Laravel applications including firewall protection, API security, bot detection, malware scanning, and project security auditing.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "CyberShield\\": "src/"
+        },
+        "files": [
+            "src/Helpers/security_helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CyberShield\\Tests\\": "src/tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Subhash Ladumor"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/http": "^10.0|^11.0|^12.0",
+        "illuminate/console": "^10.0|^11.0|^12.0",
+        "illuminate/database": "^10.0|^11.0|^12.0",
+        "illuminate/cache": "^10.0|^11.0|^12.0",
+        "illuminate/view": "^10.0|^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0",
+        "pestphp/pest": "^2.0|^3.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CyberShield\\CyberShieldServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
