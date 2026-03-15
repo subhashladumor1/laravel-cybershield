@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Basic SQLi",
+        "regex": "/(union|select|insert|update|delete|drop|alter|truncate)/i"
+    },
+    {
+        "name": "Blind SQLi",
+        "regex": "/(sleep|benchmark|waitfor)/i"
+    },
+    {
+        "name": "Comment SQLi",
+        "regex": "/(--|#|\\/\\*)/"
+    }
+]
