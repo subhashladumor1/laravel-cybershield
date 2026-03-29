@@ -3,13 +3,14 @@
 namespace CyberShield\Core;
 
 use Illuminate\Http\Request;
-use CyberShield\Firewall\WAFEngine;
-use CyberShield\BotDetection\BotDetector;
-use CyberShield\RateLimiting\AdvancedRateLimiter;
-use CyberShield\ApiSecurity\ApiSecurityManager;
-use CyberShield\ThreatDetection\ThreatEngine;
-use CyberShield\DatabaseSecurity\DatabaseIntrusionDetector;
-use CyberShield\NetworkSecurity\NetworkGuard;
+use CyberShield\Security\Firewall\WAFEngine;
+use CyberShield\Security\Bot\BotDetector;
+use CyberShield\Security\RateLimiting\AdvancedRateLimiter;
+use CyberShield\Security\Api\ApiSecurityManager;
+use CyberShield\Security\Threat\ThreatEngine;
+use CyberShield\Security\Database\DatabaseIntrusionDetector;
+use CyberShield\Security\Network\NetworkGuard;
+use CyberShield\Exceptions\SecurityException;
 
 class SecurityKernel
 {
@@ -75,6 +76,34 @@ class SecurityKernel
 
     protected function validateRequest(Request $request)
     {
-        // General request structure validation
+        $config = config('cybershield.request_security', []);
+
+        // 1. Enforce HTTPS
+        if (($config['enforce_https'] ?? false) && !$request->secure() && !app()->environment('local')) {
+            throw new SecurityException("Secure connection (HTTPS) is required.", 403);
+        }
+
+        // 2. Check Allowed Origins (CORS-like check at kernel level)
+        $origin = $request->header('Origin');
+        $allowedOrigins = $config['allowed_origins'] ?? [];
+        if ($origin && !empty($allowedOrigins) && !in_array($origin, $allowedOrigins) && !in_array('*', $allowedOrigins)) {
+            throw new SecurityException("Origin '{$origin}' is not allowed.", 403);
+        }
+
+        // 3. Check Required Headers
+        $requiredHeaders = $config['required_headers'] ?? [];
+        foreach ($requiredHeaders as $header) {
+            if (!$request->hasHeader($header)) {
+                throw new SecurityException("Missing required security header: {$header}.", 403);
+            }
+        }
+
+        // 4. Check Trusted Hosts
+        $host = $request->getHost();
+        $trustedHosts = $config['trusted_hosts'] ?? [];
+        if (!empty($trustedHosts) && !in_array($host, $trustedHosts)) {
+             throw new SecurityException("Untrusted host: {$host}.", 403);
+        }
     }
 }
+

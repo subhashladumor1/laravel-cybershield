@@ -1,0 +1,44 @@
+[
+    {
+        "id": "RCE-001",
+        "name": "Shell Execution",
+        "description": "Detects usage of shell execution commands like system, exec, shell_exec, passthru",
+        "severity": "critical",
+        "impact_score": 10.0,
+        "patterns": [
+            {
+                "regex": "/(system|exec|shell_exec|passthru|proc_open|popen)\\(/i",
+                "description": "Dangerous shell execution functions"
+            }
+        ],
+        "tags": ["rce", "shell", "php"]
+    },
+    {
+        "id": "RCE-002",
+        "name": "PHP Code Execution",
+        "description": "Detects eval, assert, preg_replace with /e modifier",
+        "severity": "critical",
+        "impact_score": 10.0,
+        "patterns": [
+            {
+                "regex": "/(eval|assert|create_function)\\(/i",
+                "description": "PHP code execution functions"
+            }
+        ],
+        "tags": ["rce", "php", "eval"]
+    },
+    {
+        "id": "RCE-003",
+        "name": "Insecure Deserialization",
+        "description": "Detects unserialize, potentially leading to RCE",
+        "severity": "high",
+        "impact_score": 8.5,
+        "patterns": [
+            {
+                "regex": "/unserialize\\(/i",
+                "description": "PHP unserialize function"
+            }
+        ],
+        "tags": ["rce", "php", "deserialization"]
+    }
+]

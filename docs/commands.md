@@ -1,112 +1,288 @@
-# ⌨️ CyberShield Artisan Command Suite
+# ⌨️ Artisan Security Commands
 
-CyberShield transforms your standard Laravel CLI into a state-of-the-art **Security Operations Command Center**. With a specialized engine and over **130+ commands**, you have absolute visibility into your application's security posture.
-
----
-
-## 🏗️ How It Works: The Security Engine
-
-CyberShield doesn't just run static checks; it uses a multi-phase **Recursive Pattern Matching Engine** designed to think like an attacker.
-
-```mermaid
-graph TD
-    A["php artisan security:scan"] --> B{Command Router}
-    B -- "Full System Audit" --> C[SecurityScanCommand]
-    B -- "Targeted Scan" --> D[DynamicScannerCommand]
-    
-    C & D --> E["ProjectScanner Core"]
-    
-    subgraph "Scanning Engine"
-    E --> F[File Discovery]
-    F --> G[Regex Pattern Matching]
-    G --> H[Environment Audit]
-    end
-    
-    H --> I[Result Aggregator]
-    I --> J[Premium CLI UI]
-    
-    J --> K["✔ Success (Green)"]
-    J --> L["⚠ Findings (Yellow/Red)"]
-```
-
-### 🔍 The Scanning Lifecycle
-1.  **Recursive Discovery**: The engine crawls through `app`, `routes`, `config`, `public`, and `resources` directories.
-2.  **Signature Matching**: We apply a library of **130+ security signatures** (Regex) against every PHP and Blade file to detect backdoors, SQLi, and XSS.
-3.  **Environment Validation**: The system checks live runtime configurations (Ports, APP_DEBUG, Key encryption) that static analysis might miss.
-4.  **Premium Presentation**: Results are streamed in real-time with randomized branding and progress indicators.
+CyberShield provides a comprehensive suite of Artisan commands for security auditing, project scanning, real-time observability, and infrastructure management.
 
 ---
 
-## 🚀 The Master Command
+## Command Reference Index
 
-The `security:scan` command is your primary entry point. It is context-aware and supports targeted arguments.
-
-| command | mode | description |
-| :--- | :--- | :--- |
-| `php artisan security:scan` | **Full Audit** | Runs all 13 modules sequentially. Recommended before Every Release. |
-| `php artisan security:scan malware` | **Malware Only** | High-speed scan for Shells, Trojans, and Obfuscated code. |
-| `php artisan security:scan sql` | **SQL Injection** | Specifically audits database interaction logic. |
-| `php artisan security:scan xss` | **XSS Audit** | Scans Blade templates for unescaped output vectors. |
+| Command | Category | Description |
+|---------|----------|-------------|
+| [`security:scan`](#securityscan) | Audit | Static code analysis for vulnerabilities |
+| [`security:dynamic-scan`](#securitydynamic-scan) | Audit | Behavioral & logic flow analysis |
+| [`security:base`](#securitybase) | Lifecycle | Initialize and manage CyberShield |
+| [`security:list-middleware`](#securitylist-middleware) | Introspection | List all registered security middleware |
 
 ---
 
-## 📂 Detailed Command Catalog
+## `security:scan`
 
-CyberShield organizes its specialized scanners into **13 high-impact categories**.
+The primary security auditor. Performs multi-rule static analysis of your codebase to identify vulnerabilities across 11 specialized rule engines.
 
-### 1️⃣ Malware & Backdoors (15 Commands)
-Designed to catch malicious code injected via compromised dependencies or server breaches.
-- **Key Commands**: `security:scan:malware`, `security:scan:webshell`, `security:scan:backdoor`, `security:scan:eval-usage`.
-- **Detection**: Identifies `eval(base64_decode())`, `shell_exec()`, and unauthorized file mutations.
-
-### 2️⃣ Database & SQL Injection (10 Commands)
-Audits your Eloquent and Query Builder usage for unsafe practices.
-- **Key Commands**: `security:scan:sql`, `security:scan:raw-sql`, `security:scan:unsafe-query`.
-- **Detection**: Raw SQL variable interpolation and unparameterized `whereRaw` / `selectRaw`.
-
-### 3️⃣ XSS & Frontend Security (10 Commands)
-Ensures your Blade templates and JS assets are properly sanitized.
-- **Key Commands**: `security:scan:xss`, `security:scan:unsafe-blade`, `security:scan:script-injection`.
-- **Detection**: Usage of `{!! !!}` with user-controlled variables and unescaped `echo`.
-
-### 4️⃣ API Security & Exposure (10 Commands)
-Scans REST/GraphQL endpoints for data leaks and auth bypasses.
-- **Key Commands**: `security:scan:api`, `security:scan:api-token`, `security:scan:api-exposure`.
-- **Detection**: API Token leakage, missing rate limits, and sensitive field exposure in Resources.
-
-### 5️⃣ Authentication & Identity (10 Commands)
-Verifies that your login and session logic follows modern security standards.
-- **Key Commands**: `security:scan:auth`, `security:scan:2fa`, `security:scan:password`.
-- **Detection**: Weak password hashing, manual login bypasses, and insecure session drivers.
-
-### 6️⃣ Infrastructure & Config (10 Commands)
-Checks if your server and environment variables are hardened for production.
-- **Key Commands**: `security:scan:env`, `security:scan:debug`, `security:scan:ssl`, `security:scan:ports`.
-- **Detection**: `APP_DEBUG=true` in production, missing `APP_KEY`, and insecure ports.
-
----
-
-## 🛠️ Advanced Usage
-
-### Fail-Fast CI Implementation
-Integrate this into your GitHub Actions or Jenkins to prevent insecure builds:
+### Syntax
 ```bash
-php artisan security:scan --fail-on-issue
+php artisan security:scan [options]
 ```
 
-### Audit Specific Plugin Only
-If you've added a new third-party package:
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--path=` | `.` (project root) | Target directory for the scan. |
+| `--severity=` | `low` | Minimum severity to report: `low`, `medium`, `high`, `critical`. |
+| `--json` | `false` | Output results as JSON (for CI/CD). |
+| `--no-ansi` | `false` | Disable colored output (for log files). |
+
+### Examples
+
+**Development scan — scan controllers only:**
 ```bash
-php artisan security:scan:malware --path=vendor/some-package/src
+php artisan security:scan --path=app/Http/Controllers --severity=low
+```
+
+**CI/CD pipeline — fail build on high-severity issues:**
+```bash
+php artisan security:scan --severity=high --json > security-report.json
+
+# In your CI script:
+php artisan security:scan --severity=high && echo "✅ Security passed" || exit 1
+```
+
+**Production pre-deployment check:**
+```bash
+php artisan security:scan --severity=medium --no-ansi
+```
+
+### What Gets Scanned
+
+The scanner applies 11 specialized rule engines sequentially:
+
+| Rule Engine | Checks For |
+|-------------|------------|
+| `MalwareRule` | `eval()`, `base64_decode()`, `shell_exec()`, obfuscated code patterns |
+| `SqlInjectionRule` | Raw `DB::statement()` calls, unparameterized queries, `$_GET`/`$_POST` in queries |
+| `XssRule` | Unescaped `{!! !!}` in Blade, `echo` without `htmlspecialchars` |
+| `ConfigRule` | `APP_DEBUG=true` in production, exposed `.env`, missing `APP_KEY` |
+| `DependencyRule` | Known vulnerable Composer packages (from CVE database) |
+| `ModelSecurityRule` | Models with `$guarded = []` or without `$fillable` defined |
+| `FileUploadRule` | Uploads without MIME type validation, executable extension checks |
+| `BotDetectionRule` | Missing rate limiting on public forms, no honeypot on registration |
+| `ApiSecurityRule` | API routes without authentication, missing rate limiting |
+| `AuthSecurityRule` | Weak password validation, sessions without regeneration |
+| `InfrastructureRule` | Open debug ports, insecure file permissions, exposed sensitive paths |
+
+### Sample Output
+```
+🛡️  CyberShield Security Scan
+Scanning: /var/www/myapp
+Severity threshold: medium
+
+  Rule: MalwareRule .............. ✅  0 issues
+  Rule: SqlInjectionRule ......... ⚠️  2 issues
+  Rule: XssRule .................. ✅  0 issues
+  Rule: ConfigRule ............... 🚨  1 critical issue
+  Rule: DependencyRule ........... ⚠️  1 medium issue
+  Rule: ModelSecurityRule ......... ✅  0 issues
+  Rule: FileUploadRule ........... ✅  0 issues
+  Rule: BotDetectionRule ......... ⚠️  1 issue
+  Rule: ApiSecurityRule .......... ✅  0 issues
+  Rule: AuthSecurityRule ......... ✅  0 issues
+  Rule: InfrastructureRule ........ ✅  0 issues
+
+📋  FINDINGS SUMMARY
+═══════════════════════════════════════════════════════
+
+🚨  CRITICAL  [ConfigRule]
+    APP_DEBUG is set to true in your .env file.
+    File: .env:3
+    Risk: Exposes detailed stack traces to end users.
+
+⚠️  MEDIUM  [SqlInjectionRule]
+    Raw query with unvalidated input detected.
+    File: app/Http/Controllers/ReportController.php:45
+    Snippet: DB::select("SELECT * FROM users WHERE id = " . $id)
+
+⚠️  MEDIUM  [DependencyRule]
+    Package 'league/flysystem' ^1.0 has known CVE-2021-32708.
+    Action: Run `composer update league/flysystem`
+
+Total: 1 critical, 2 medium issues found.
+```
+
+### Scheduled Usage
+
+Add to `routes/console.php` or `app/Console/Kernel.php` for automated weekly audits:
+```php
+Schedule::command('security:scan --severity=medium')
+    ->weeklyOn(0, '02:00')
+    ->emailOutputTo('devops@yourcompany.com');
 ```
 
 ---
 
-## 💡 Best Practices
-*   **Post-Composer Audit**: Always run `security:scan:dependencies` after every `composer update`.
-*   **Production Monitoring**: Schedule `security:scan --type=env` daily via the Laravel Scheduler to ensure debug modes aren't accidentally toggled.
-*   **Security Reports**: Use `security:report:pdf` to generate compliance documents for stakeholders.
+## `security:dynamic-scan`
+
+Performs behavioral and logical flow analysis beyond what static text matching can find.
+
+### Syntax
+```bash
+php artisan security:dynamic-scan [options]
+```
+
+### What It Analyzes
+
+| Analysis Type | Description |
+|--------------|-------------|
+| **Logic Bombs** | Code that executes based on time, date, or counter conditions |
+| **Hidden Egress** | Outbound HTTP calls or file writes in unexpected places |
+| **Supply Chain Backdoors** | 3rd-party vendor code with unusual network calls |
+| **Obfuscated Execution** | Base64-decoded strings passed to `eval()` |
+| **Environment Sniffing** | Code checking for CI environment variables (deploy-time attacks) |
+
+### Example
+```bash
+php artisan security:dynamic-scan --path=vendor/suspicious-package
+```
+
+> [!WARNING]
+> The dynamic scan can take several minutes on large codebases. Run it on a separate process or in your CI pipeline overnight.
 
 ---
 
-[Explore the Architecture](architecture.md) | [Back to Home](../README.md)
+## `security:base`
+
+Lifecycle management for the CyberShield infrastructure.
+
+### Syntax
+```bash
+php artisan security:base {action}
+```
+
+### Actions
+
+#### `security:base init`
+Full initialization: verifies database connectivity, runs pending CyberShield migrations, checks that the `security_logs` table is accessible, validates the signature files exist, and verifies config.
+
+```bash
+php artisan security:base init
+```
+
+**Output:**
+```
+🛡️  CyberShield Initialization
+  ✅  Database connection: OK
+  ✅  Migrations: security_logs, ip_activity, request_logs — Applied
+  ✅  Signature files: sql_injection.json, xss.json, rce.json — Loaded
+  ✅  Config: config/cybershield.php — Valid
+  ✅  Cache driver: redis — Connected
+
+CyberShield is ready! Mode: active
+```
+
+---
+
+## `security:list-middleware`
+
+Returns a color-coded table of all 200+ registered CyberShield middleware guards, their category, and their alias.
+
+### Syntax
+```bash
+php artisan security:list-middleware [options]
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--category=` | Filter by category: `request`, `rate`, `bot`, `network`, `auth`, `api`, `threat`, `monitoring` |
+| `--json` | Output as JSON |
+
+### Example
+```bash
+php artisan security:list-middleware --category=bot
+```
+
+**Output:**
+```
+🛡️  CyberShield Middleware Registry
+Category: bot (25 middlewares)
+
+  Alias                                    | Category       | Status
+ ──────────────────────────────────────────|────────────────|──────────
+  cybershield.detect_bot_traffic           | Bot Protection | ✅ Enabled
+  cybershield.detect_headless_browser_bot  | Bot Protection | ✅ Enabled
+  cybershield.detect_scraper_bot           | Bot Protection | ✅ Enabled
+  cybershield.detect_automation_script     | Bot Protection | ✅ Enabled
+  ...
+```
+
+---
+
+## 🚦 Quick Command Reference Card
+
+```bash
+# ─── Project Security ────────────────────────────────────────────────────────
+php artisan security:scan                          # Full scan, low severity
+php artisan security:scan --severity=high          # High-severity only  
+php artisan security:scan --path=app/Http          # Scan specific directory
+php artisan security:scan --json                   # Machine-readable output
+php artisan security:dynamic-scan                  # Behavioral analysis
+
+# ─── Lifecycle ───────────────────────────────────────────────────────────────
+php artisan security:base init                     # Initialize infrastructure
+php artisan vendor:publish --tag=cybershield-config    # Publish config
+php artisan vendor:publish --tag=cybershield-migrations # Publish migrations
+php artisan migrate                                # Run database migrations
+
+# ─── Introspection ───────────────────────────────────────────────────────────
+php artisan security:list-middleware               # All 200+ middleware
+php artisan security:list-middleware --category=api # Filter by category
+```
+
+---
+
+## 🔄 CI/CD Integration
+
+### GitHub Actions Example
+```yaml
+name: Security Scan
+
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      
+      - name: Install dependencies
+        run: composer install --no-dev
+      
+      - name: Run CyberShield Security Scan
+        run: php artisan security:scan --severity=high --json --no-ansi
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+```
+
+### Scheduled Audit in Console Kernel
+```php
+// routes/console.php (Laravel 11+)
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('security:scan --severity=medium')
+    ->weekly()
+    ->at('02:00')
+    ->emailOutputTo('security@yourdomain.com');
+
+Schedule::command('security:dynamic-scan')
+    ->monthly()
+    ->at('03:00');
+```
+
+[← Back to Blade Directives](blade-directives.md) | [Next: Logging →](logging.md)

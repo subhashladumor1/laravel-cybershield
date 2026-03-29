@@ -1,103 +1,265 @@
-# 🔑 API Security: Multi-Layered REST Protection
+# 🔑 API Security Gateway
 
-CyberShield's API Security system provides an enterprise-grade protection pipeline for your RESTful services, specifically designed to neutralize automated attacks, replay attempts, and unauthorized data access.
+CyberShield provides an enterprise-ready security gateway for your REST and GraphQL APIs. It ensures every API transaction is authentic, untampered, time-bounded, and within policy — protecting against the most sophisticated API attacks.
 
 ---
 
-## 🏗️ 4-Layer Security Pipeline
-
-Every API request passes through a sequential, high-speed validation pipeline before reaching your controller.
+## 🛡️ Core Protection Layers
 
 ```mermaid
-graph TD
-    Req[Incoming Request] --> L1[<b>Layer 1: Validation</b><br/>API Keys, HMAC Signatures, Nonces]
-    L1 --> L2[<b>Layer 2: Rate Limiting</b><br/>Concurrency, Costs, Thresholds]
-    L2 --> L3[<b>Layer 3: Behavior Analysis</b><br/>Fingerprinting, Abuse Detection]
-    L3 --> L4[<b>Layer 4: Threat Response</b><br/>Auto-Blocking, Security Logging]
-    L4 --> App[Laravel Controller]
-    
-    L1 -- Fail --> Reject[401 Unauthorized]
-    L2 -- Fail --> Reject2[429 Too Many Requests]
-    L3 -- Flag --> L4
-    L4 -- Malicious --> Block[403 Forbidden / IP Block]
+sequenceDiagram
+    participant C as "🖥️ API Client"
+    participant G as "🛡️ CyberShield Gateway"
+    participant K as "🗝️ API Key Manager"
+    participant V as "✅ Integrity Validator"
+    participant A as "📊 Cost/Quota Engine"
+    participant App as "🎯 Your Controller"
+
+    C->>G: Request + X-API-KEY + X-Signature + X-Nonce + X-Timestamp
+    G->>K: Validate API Key (active? quota?)
+    K-->>G: ✅ Valid Key — Tier: Pro
+    G->>V: Verify HMAC-SHA256 Signature
+    V-->>G: ✅ Signature Match
+    G->>V: Check Nonce (never seen before?)
+    V-->>G: ✅ Fresh Nonce
+    G->>V: Validate Timestamp (within ±60s)
+    V-->>G: ✅ Valid Time Window
+    G->>A: Deduct resource cost (endpoint = 5 credits)
+    A-->>G: ✅ Budget OK (495 remaining)
+    G->>App: ✅ Authorized Request
+    App-->>C: 200 OK + Response
 ```
 
 ---
 
-## 💎 Core Security Features
+## 1. HMAC-SHA256 Signature Verification
 
-### 1. API Key & Secret Management
-Dynamic validation of API keys with support for expiration and metadata. Secrets are used to verify request integrity without ever being transmitted over the wire.
+Every API request is signed by the client using a shared secret. CyberShield recomputes the HMAC and compares it in **constant time** to prevent timing attacks.
 
-### 2. HMAC Request Signatures
-Prevents data tampering by verifying a cryptographic hash of:
-- HTTP Method
-- Full URL
-- Request Body
-- X-Timestamp
+**What it prevents**: Man-in-the-Middle (MITM) attacks where a network interceptor modifies the request payload in transit.
 
-### 3. Replay Attack Protection (Nonces)
-Uses short-lived cryptographically unique nonces stored in Redis/Cache to ensure a specific request cannot be intercepted and re-sent by an attacker.
-
-### 4. Cost-Based Throttling
-Unlike standard rate limits, you can assign "costs" to expensive endpoints (e.g., PDF generation = 20 tokens, search = 5 tokens), preventing resource exhaustion attacks.
-
-### 5. Concurrent Request Limiting
-Prevents a single API user from opening hundreds of simultaneous connections, a common technique in Deny-of-Inventory (DoI) attacks.
-
----
-
-## 🚀 Implementation Guide
-
-### 1. Register API Keys
-Create your API keys in the `api_keys` table. Minimum required fields: `key`, `secret`, `is_active`.
-
-### 2. Apply the Middleware
-Apply the `cybershield.api_security` middleware to your API routes:
-
+### How to Sign Requests (Client-Side)
 ```php
-// routes/api.php
-Route::middleware(['cybershield.api_security'])->prefix('v1')->group(function () {
-    Route::get('/user', [UserController::class, 'profile']);
-    Route::post('/transaction', [PayController::class, 'store']); // Protected by HMAC + Nonce
-});
+// PHP Client Example
+$method    = 'POST';
+$url       = '/api/v1/orders';
+$body      = json_encode(['item' => 'PROD-001', 'qty' => 3]);
+$nonce     = bin2hex(random_bytes(16));  // Unique per request
+$timestamp = time();
+
+// 1. Create the canonical string to sign
+$canonical = strtoupper($method) . $url . $body . $timestamp . $nonce;
+
+// 2. Sign it with your API secret
+$signature = hash_hmac('sha256', $canonical, $apiSecret);
+
+// 3. Send the headers
+$response = Http::withHeaders([
+    'X-API-KEY'    => $apiKey,
+    'X-Signature'  => $signature,
+    'X-Nonce'      => $nonce,
+    'X-Timestamp'  => $timestamp,
+    'Content-Type' => 'application/json',
+])->post("https://yourapp.com{$url}", json_decode($body, true));
 ```
 
-### 3. Client Header Requirements
-The security engine expects the following headers from clients:
-- `X-API-KEY`: The client's public identifier.
-- `X-Signature`: HMAC hash of the payload.
-- `X-Nonce`: Unique string for this specific request.
-- `X-Timestamp`: Current unix timestamp.
+### Server-Side Verification (Middleware)
+```php
+// Applied automatically by:
+Route::middleware('cybershield.verify_api_signature')
+    ->post('/api/v1/orders', [OrderController::class, 'store']);
+```
+
+Or verify manually in a controller:
+```php
+$payload   = $request->getContent();
+$signature = $request->header('X-Signature');
+$secret    = config('services.my_api.secret');
+
+if (!verify_api_signature($payload, $signature, $secret)) {
+    abort(401, 'Invalid signature.');
+}
+```
 
 ---
 
-## 🌍 Real-World Use Cases
+## 2. Replay Attack Prevention (Nonce + Timestamp)
 
-### ✅ Use Case 1: Financial Transaction Protection
-**Scenario:** A fintech app needs to ensure that "Withdraw Funds" requests aren't tampered with mid-transit.
-**CyberShield Solution:** The **HMAC Signature** layer ensures that if an attacker changes the `amount` field in the body, the signature will fail, and the request is instantly blocked.
+A "replay attack" is when an attacker captures a valid, signed request and re-sends it. CyberShield uses two complementary mechanisms:
 
-### ✅ Use Case 2: Preventing Resource Draining
-**Scenario:** A generative AI API has a "Text-to-Video" endpoint that costs $0.50 in compute per call.
-**CyberShield Solution:** **Cost-Based Throttling** assigns a cost of `50` to this endpoint. Once the user hits their daily budget limit, CyberShield rejects the request before it even starts the expensive GPU process.
+**Timestamp**: The `X-Timestamp` must be within ±60 seconds of the server's clock. Older requests are rejected.
 
-### ✅ Use Case 3: Neutralizing Replay Attacks
-**Scenario:** An attacker intercepts a valid "Unlock Door" API call from an IoT device.
-**CyberShield Solution:** Since each request requires a unique **Nonce**, the attacker's attempt to "re-play" the same packet 5 minutes later is detected by the `ApiRequestValidator` and blocked as a duplicate.
+**Nonce**: A unique value (`X-Nonce`) is stored in cache when first seen. On a second request with the same nonce, it's rejected even if the timestamp is valid.
 
----
+```
+Attack scenario: Attacker captures a valid $5 transfer request.
 
-## ⚙️ Configuration
-Customize the behavior in `config/cybershield.php`:
+Without CyberShield:
+  - Attacker replays it 100 times → $500 stolen
+
+With CyberShield:
+  - First replay: X-Timestamp is now 65 seconds old → 401 Timestamp expired
+  - Even within 60s: Nonce already used → 401 Nonce already consumed
+```
+
+### Configuration
 ```php
 'api_security' => [
-    'enabled' => true,
-    'verify_signature' => true,
-    'replay_protection' => true,
-    'default_concurrent_limit' => 5,
-    'endpoint_costs' => [
-        'api/v1/heavy-report' => 50,
+    'replay_protection'   => env('CYBERSHIELD_API_REPLAY_PROTECTION', true),
+    'timestamp_tolerance' => 60,  // seconds of allowed clock drift
+    'headers' => [
+        'nonce'     => 'X-Nonce',
+        'timestamp' => 'X-Timestamp',
     ],
 ],
 ```
+
+---
+
+## 3. API Key Registry
+
+Every API key is validated against the `api_keys` database table:
+
+```sql
+CREATE TABLE api_keys (
+    id          bigint PRIMARY KEY,
+    key         varchar(64) UNIQUE,
+    secret      varchar(128),
+    name        varchar(100),
+    tier        enum('free', 'starter', 'pro', 'enterprise'),
+    is_active   boolean DEFAULT true,
+    daily_cost  int DEFAULT 0,       -- Running tally
+    cost_limit  int DEFAULT 1000,    -- Daily budget
+    created_at  timestamp,
+    updated_at  timestamp
+);
+```
+
+### Creating API Keys
+```php
+// In your admin panel or seeder
+DB::table('api_keys')->insert([
+    'key'        => secure_token(),  // 64-char hex token
+    'secret'     => secure_token(),  // 64-char hex secret
+    'name'       => 'Mobile App v2',
+    'tier'       => 'pro',
+    'cost_limit' => 50000,
+    'is_active'  => true,
+]);
+```
+
+---
+
+## 4. Resource Cost Budgeting
+
+Not all API endpoints are equal. CyberShield lets you assign a "cost" to expensive endpoints to prevent resource exhaustion:
+
+```php
+// config/cybershield.php
+'api_security' => [
+    'daily_cost_limit' => 10000,  // Total credits per API key per day
+
+    'endpoint_costs' => [
+        'api/v1/heavy-report'    => 100,  // Very expensive
+        'api/v1/export'          => 20,   // Moderate
+        'api/v1/search'          => 5,    // Light query
+        'api/v1/ai/generate'     => 50,   // AI calls are expensive
+        // All other routes default to 1 credit
+    ],
+],
+```
+
+**Example**: An API key on the `starter` plan has 1,000 credits/day:
+- Can make 1,000 simple `/search` calls (5 credits × 200 = 1,000)
+- OR 50 exports (20 credits × 50 = 1,000)
+- OR 10 heavy reports (100 credits × 10 = 1,000)
+
+When the budget is exhausted: `429 Too Many Requests — Daily quota exceeded`.
+
+---
+
+## 5. API Security Headers
+
+| Header | Required By | Purpose |
+|--------|-------------|---------|
+| `X-API-KEY` | `verify_api_key` | Identifies the API client |
+| `X-Signature` | `verify_api_signature` | HMAC-SHA256 payload integrity |
+| `X-Nonce` | `verify_api_nonce` | Unique one-time value (16+ chars) |
+| `X-Timestamp` | `verify_api_timestamp` | Unix timestamp (seconds) |
+| `X-Request-ID` | `verify_api_request_id` | Distributed tracing (UUID) |
+| `Content-Type` | `verify_api_header_validation` | Must be `application/json` |
+| `Accept` | `verify_api_header_validation` | Must include `application/json` |
+
+---
+
+## 🏗️ Route Examples
+
+### Full Protection Stack
+```php
+// The complete enterprise API protection layer
+Route::middleware([
+    'cybershield.block_blacklisted_ip',
+    'cybershield.detect_tor_network',
+    'cybershield.verify_api_key',
+    'cybershield.verify_api_signature',
+    'cybershield.verify_api_nonce',
+    'cybershield.verify_api_timestamp',
+    'cybershield.api_rate_limiter',
+    'cybershield.verify_api_cost_limit',
+    'cybershield.detect_sql_injection',
+    'cybershield.log_api_usage',
+    'cybershield.log_security_event',
+])->prefix('api/v1')->group(function () {
+    Route::post('/orders',         [OrderController::class, 'store']);
+    Route::post('/payments',       [PaymentController::class, 'process']);
+    Route::post('/reports/export', [ReportController::class, 'export']);
+});
+```
+
+### Public Read-Only API (Lighter)
+```php
+Route::middleware([
+    'cybershield.verify_api_key',
+    'cybershield.api_rate_limiter',
+    'cybershield.detect_sql_injection',
+])->prefix('api/v1')->group(function () {
+    Route::get('/products',  [ProductController::class, 'index']);
+    Route::get('/categories',[CategoryController::class, 'index']);
+});
+```
+
+---
+
+## 🔐 Using Helper Functions in API Controllers
+
+```php
+class ApiController extends Controller
+{
+    public function process(Request $request): JsonResponse
+    {
+        // Extra manual threat check
+        if (is_high_risk()) {
+            log_threat_event('high_risk_api_access', ['endpoint' => request()->path()]);
+            abort(403, 'Access denied: high risk client.');
+        }
+
+        // Verify signature manually (useful for webhooks with custom secrets)
+        $payload = $request->getContent();
+        if (!verify_api_signature($payload, $request->header('X-Sig'), $myWebhookSecret)) {
+            abort(401, 'Invalid webhook signature.');
+        }
+
+        // Log sensitive access
+        Log::channel('security')->info('API access', [
+            'ip'       => mask_ip(),
+            'key'      => mask_token($request->header('X-API-KEY')),
+            'endpoint' => $request->path(),
+        ]);
+
+        // Process...
+        return response()->json(['status' => 'processed']);
+    }
+}
+```
+
+[← Back to Rate Limiting](rate-limiting.md) | [Next: Networking →](networking.md)

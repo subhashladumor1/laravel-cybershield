@@ -1,14 +1,44 @@
 [
     {
-        "name": "Script Tag",
-        "regex": "/<script.*?>.*?<\\/script>/is"
+        "id": "XSS-001",
+        "name": "Script Tag Injection",
+        "description": "Detects <script> tags in request payload",
+        "severity": "critical",
+        "impact_score": 9.0,
+        "patterns": [
+            {
+                "regex": "/<script.*?>.*?<\\/script>/is",
+                "description": "Standard script tag"
+            }
+        ],
+        "tags": ["xss", "owasp", "javascript"]
     },
     {
-        "name": "JS Event Handler",
-        "regex": "/on(load|click|mouseover|error)=/i"
+        "id": "XSS-002",
+        "name": "Event Handler Injection",
+        "description": "Detects JS event handlers like onload, onclick, etc.",
+        "severity": "high",
+        "impact_score": 8.0,
+        "patterns": [
+            {
+                "regex": "/on(load|click|mouseover|error)=/i",
+                "description": "JS event handler"
+            }
+        ],
+        "tags": ["xss", "javascript", "event"]
     },
     {
-        "name": "Alert/Prompt",
-        "regex": "/(alert|prompt|confirm)\\(/i"
+        "id": "XSS-003",
+        "name": "JS function execution",
+        "description": "Detects execution of alert, prompt, confirm, eval, and other dangerous JS functions",
+        "severity": "high",
+        "impact_score": 8.5,
+        "patterns": [
+            {
+                "regex": "/(alert|prompt|confirm|eval|setTimeout|setInterval)\\(/i",
+                "description": "Dangerous JS functions"
+            }
+        ],
+        "tags": ["xss", "javascript", "function"]
     }
 ]

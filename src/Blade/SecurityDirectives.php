@@ -97,6 +97,10 @@ class SecurityDirectives
         Blade::directive('secureEscape', fn($d) => "<?php echo htmlspecialchars($d, ENT_QUOTES, 'UTF-8'); ?>");
         Blade::directive('secureSafeHtml', fn($d) => "<?php echo sanitize_html($d); ?>");
         Blade::directive('secureSafeScript', fn($d) => "<?php echo sanitize_string($d); ?>");
+        Blade::directive('secureHoneypot', function () {
+            $fieldName = config('cybershield.bot_protection.honeypot.field_name', 'hp_token_id');
+            return "<?php echo '<div style=\"display:none\"><input type=\"text\" name=\"' . '$fieldName' . '\" value=\"\"></div>'; ?>";
+        });
 
         // --- 5. UI SECURITY DIRECTIVES (20) ---
         Blade::if('secureAdminPanel', fn() => auth()->check() && optional(auth()->user())->role === 'admin');
