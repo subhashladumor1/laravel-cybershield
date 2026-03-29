@@ -1,8 +1,38 @@
 {
-    "name": "cybershield/laravel-cybershield",
-    "description": "Enterprise-grade security tools for Laravel applications including firewall protection, API security, bot detection, malware scanning, and project security auditing.",
+    "name": "subhashladumor1/laravel-cybershield",
+    "homepage": "https://github.com/subhashladumor1/laravel-cybershield",
+    "description": "Enterprise-grade Laravel security package providing WAF firewall protection, rate limiting, bot detection, honeypot traps, IP geo-blocking, CSRF/XSS/SQLi defence, API gateway security, real-time threat monitoring, malware scanning, and a built-in security dashboard — all configurable via a single config file.",
     "type": "library",
+    "keywords": [
+        "laravel",
+        "security",
+        "cybershield",
+        "firewall",
+        "waf",
+        "web-application-firewall",
+        "rate-limiting",
+        "bot-detection",
+        "honeypot",
+        "ip-blocking",
+        "geo-blocking",
+        "csrf",
+        "xss",
+        "sql-injection",
+        "api-security",
+        "api-gateway",
+        "threat-detection",
+        "malware-scanner",
+        "security-dashboard",
+        "middleware",
+        "intrusion-detection",
+        "ddos-protection",
+        "request-validation",
+        "security-audit",
+        "laravel-package",
+        "php"
+    ],
     "license": "MIT",
+    "version": "1.0.0",
     "autoload": {
         "psr-4": {
             "CyberShield\\": "src/"
@@ -25,10 +55,15 @@
         "php": "^8.2",
         "illuminate/support": "^10.0|^11.0|^12.0",
         "illuminate/http": "^10.0|^11.0|^12.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0",
         "illuminate/console": "^10.0|^11.0|^12.0",
         "illuminate/database": "^10.0|^11.0|^12.0",
         "illuminate/cache": "^10.0|^11.0|^12.0",
-        "illuminate/view": "^10.0|^11.0|^12.0"
+        "illuminate/filesystem": "^10.0|^11.0|^12.0",
+        "illuminate/log": "^10.0|^11.0|^12.0",
+        "illuminate/view": "^10.0|^11.0|^12.0",
+        "symfony/http-foundation": "^6.0|^7.0",
+        "symfony/console": "^6.0|^7.0"
     },
     "require-dev": {
         "orchestra/testbench": "^8.0|^9.0|^10.0",
@@ -41,6 +76,10 @@
                 "CyberShield\\CyberShieldServiceProvider"
             ]
         }
+    },
+    "support": {
+        "issues": "https://github.com/subhashladumor1/laravel-cybershield/issues",
+        "source": "https://github.com/subhashladumor1/laravel-cybershield"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

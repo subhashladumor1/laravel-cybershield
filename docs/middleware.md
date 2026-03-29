@@ -25,11 +25,34 @@ graph TD
     H --> I[403 Forbidden / 429 Rate Limit]
 ```
 
+### 🏗️ The Guard Pipeline
+
+```mermaid
+graph TD
+    Req["📨 Incoming Request"] --> Kernel["🌐 Global Kernel\n(FirewallMiddleware)"]
+    Kernel --> White{"Whitelist?"}
+    White -->|"Yes"| App[["✅ App Controller"]]
+    White -->|"No"| Black{"Blacklist?"}
+    Black -->|"Yes"| Abort403["🚫 403 Forbidden"]
+    Black -->|"No"| Group["🛡️ Route Group Middlewares"]
+    Group --> Route["🔒 Route-Level Middlewares"]
+    Route --> Check{"Global Mode?"}
+    Check -->|"active"| BlockReq["🚫 Block + Log"]
+    Check -->|"log"| LogOnly["📝 Log Only → Continue"]
+    LogOnly --> App
+```
+
 ### 🧠 Logic Principles
 1.  **Context Aware**: Middlewares automatically switch between blocking and logging based on the `global_mode` setting.
 2.  **Stateless Heuristics**: Most checks (like Header validation) are ultra-fast and stateless.
 3.  **Stateful Protection**: Stateful layers (Rate Limiting, Bot Protection) utilize the configured Laravel Cache driver (Redis/Memcached/Database).
 4.  **Automatic Aliasing**: Every middleware is dynamically mapped to a `cybershield.*` alias.
+
+### Execution Logic
+1. **Fast Path**: Whitelist check runs first — O(1) cache lookup. Trusted IPs bypass everything.
+2. **Blacklist Drop**: Blacklisted IPs are dropped before any other processing.
+3. **Module Check**: Each middleware checks if its module is enabled via `shield_config('modules.*')`.
+4. **Mode-Aware**: All middlewares call `shield_abort()` which respects `global_mode`.
 
 ---
 
@@ -69,38 +92,48 @@ graph TD
 | `cybershield.validate_request_latency` | Flags requests that take too long to complete. |
 | `cybershield.validate_client_fingerprint` | Matches hardware ID against session data. |
 
+**Usage Example: Secure Webhook**
+```php
+Route::post('/webhooks/payment', [WebhookController::class, 'handle'])
+    ->middleware([
+        'cybershield.validate_request_integrity',   // Verify payload hash
+        'cybershield.validate_content_type',       // Must be application/json
+        'cybershield.validate_request_signature',  // Verify HMAC
+    ]);
+```
+
 ---
 
 ## 📂 Category B: Rate Limiting (25)
 *Dynamic traffic shaping and resource protection.*
 
-| Alias | Description |
-|---|---|
-| `cybershield.ip_rate_limiter` | Basic per-IP request throttling. |
-| `cybershield.user_rate_limiter` | Limits actions per authenticated user ID. |
-| `cybershield.api_rate_limiter` | High-performance throttling for API volume. |
-| `cybershield.endpoint_rate_limiter` | Granular limits for sensitive URLs. |
-| `cybershield.burst_rate_limiter` | Blocks sub-second millisecond bursts. |
-| `cybershield.adaptive_rate_limiter` | Limits tighten as user's risk score increases. |
-| `cybershield.dynamic_rate_limiter` | Adjusts limits based on current server load. |
-| `cybershield.sliding_window_rate_limiter` | Accurate rolling-window limit for traffic. |
-| `cybershield.token_bucket_rate_limiter` | Allows bursts but enforces a long-term average. |
-| `cybershield.concurrent_request_limiter` | Limits simultaneous open connections. |
-| `cybershield.distributed_rate_limiter` | Uses Redis to sync limits across clusters. |
-| `cybershield.user_agent_rate_limiter` | Throttles specific bots or browser types. |
-| `cybershield.geo_rate_limiter` | Throttles regions showing suspicious traffic. |
-| `cybershield.device_rate_limiter` | Limits actions based on unique device ID. |
-| `cybershield.fingerprint_rate_limiter` | Throttles based on hardware fingerprint. |
-| `cybershield.login_rate_limiter` | Specialized strict throttle for /login route. |
-| `cybershield.password_attempt_limiter` | Blocks IPs after failed password changes. |
-| `cybershield.otp_attempt_limiter` | Limits 2FA/OTP verification tries. |
-| `cybershield.api_key_rate_limiter` | Enforces quota based on the API Key Tier. |
-| `cybershield.crawler_rate_limiter` | Heavily slows down known SEO/Data crawlers. |
-| `cybershield.guest_rate_limiter` | Strict limits for unauthenticated visitors. |
-| `cybershield.anonymous_rate_limiter` | Throttles traffic from anonymized proxies. |
-| `cybershield.admin_rate_limiter` | Additional security for the admin panel. |
-| `cybershield.queue_rate_limiter` | Throttles requests targeting background jobs. |
-| `cybershield.cost_based_rate_limiter` | Deducts credits based on resource cost. |
+| Alias | Description | Strategy |
+|---|---|---|
+| `cybershield.ip_rate_limiter` | Basic per-IP request throttling. | Linear |
+| `cybershield.user_rate_limiter` | Limits actions per authenticated user ID. | Linear |
+| `cybershield.api_rate_limiter` | High-performance throttling for API volume. | Linear |
+| `cybershield.endpoint_rate_limiter` | Granular limits for sensitive URLs. | Configurable |
+| `cybershield.burst_rate_limiter` | Blocks sub-second millisecond bursts. | Token bucket |
+| `cybershield.adaptive_rate_limiter` | Limits tighten as user's risk score increases. | Adaptive |
+| `cybershield.dynamic_rate_limiter` | Adjusts limits based on current server load. | Dynamic |
+| `cybershield.sliding_window_rate_limiter` | Accurate rolling-window limit for traffic. | Sliding window |
+| `cybershield.token_bucket_rate_limiter` | Allows bursts but enforces a long-term average. | Token bucket |
+| `cybershield.concurrent_request_limiter` | Limits simultaneous open connections. | Semaphore |
+| `cybershield.distributed_rate_limiter` | Uses Redis to sync limits across clusters. | Linear (Redis) |
+| `cybershield.user_agent_rate_limiter` | Throttles specific bots or browser types. | Linear |
+| `cybershield.geo_rate_limiter` | Throttles regions showing suspicious traffic. | Linear |
+| `cybershield.device_rate_limiter` | Limits actions based on unique device ID. | Linear |
+| `cybershield.fingerprint_rate_limiter` | Throttles based on hardware fingerprint. | Linear |
+| `cybershield.login_rate_limiter` | Specialized strict throttle for /login route. | Fibonacci |
+| `cybershield.password_attempt_limiter` | Blocks IPs after failed password changes. | Exponential |
+| `cybershield.otp_attempt_limiter` | Limits 2FA/OTP verification tries. | Fibonacci |
+| `cybershield.api_key_rate_limiter` | Enforces quota based on the API Key Tier. | Linear |
+| `cybershield.crawler_rate_limiter` | Heavily slows down known SEO/Data crawlers. | Linear |
+| `cybershield.guest_rate_limiter` | Strict limits for unauthenticated visitors. | Linear |
+| `cybershield.anonymous_rate_limiter` | Throttles traffic from anonymized proxies. | Exponential |
+| `cybershield.admin_rate_limiter` | Additional security for the admin panel. | Linear |
+| `cybershield.queue_rate_limiter` | Throttles requests targeting background jobs. | Linear |
+| `cybershield.cost_based_rate_limiter` | Deducts credits based on resource cost. | Cost-based |
 
 ---
 
@@ -134,6 +167,18 @@ graph TD
 | `cybershield.detect_fake_headers_bot` | Flags bots with inconsistent header patterns. |
 | `cybershield.detect_browser_anomaly_bot` | Detects environment inconsistencies. |
 | `cybershield.detect_user_behavior_bot` | Aggregates behavioral signals for bot-check. |
+
+**Usage Example: Stopping Registration Spam**
+```php
+Route::post('/register', [RegisterController::class, 'store'])
+    ->middleware([
+        'cybershield.detect_bot_traffic',       // Quick UA check
+        'cybershield.detect_spam_signup_bot',   // Registration-specific checks
+        'cybershield.detect_headless_browser_bot',
+        'cybershield.detect_form_submission_bot', // Too fast = bot
+        'cybershield.guest_rate_limiter',
+    ]);
+```
 
 ---
 
@@ -229,6 +274,22 @@ graph TD
 | `cybershield.verify_api_data_leak` | Scans API response bodies for PII. |
 | `cybershield.verify_api_usage_pattern` | Flags anomalies in API interaction flows. |
 
+**The "Fortified API" Stack:**
+```php
+Route::middleware([
+    'cybershield.block_blacklisted_ip',       // Drop known-bad IPs
+    'cybershield.verify_api_key',             // API key validation
+    'cybershield.verify_api_signature',       // HMAC integrity
+    'cybershield.verify_api_nonce',           // Replay protection
+    'cybershield.verify_api_timestamp',       // Time-window validation
+    'cybershield.api_rate_limiter',           // Throttling
+    'cybershield.verify_api_cost_limit',      // Budget enforcement
+    'cybershield.log_security_event',         // Audit trail
+])->prefix('api/v1')->group(function () {
+    Route::post('/transactions', [TransactionController::class, 'store']);
+});
+```
+
 ---
 
 ## 📂 Category G: Threat Detection (25)
@@ -297,33 +358,68 @@ graph TD
 
 ---
 
-## 🚀 Implementation Guide
+## 🏗️ Middleware Stacking Strategies
 
-### 📂 View All Middlewares
-To see the full list of all 200 dynamic aliases, run the registry command:
-```bash
-php artisan cybershield:list-middleware
-```
-
-### 🔐 Applying to Routes
-Middlewares are applied using the `cybershield.` prefix:
-
+### 🏦 Financial / High-Stakes API
 ```php
-// Single Protection
-Route::get('/dashboard', [AppController::class, 'index'])
-     ->middleware('cybershield.detect_bot_traffic');
-
-// Multi-Layer Defense (The Recommended Way)
 Route::middleware([
-    'cybershield.validate_request_signature',
+    'cybershield.block_blacklisted_ip',
+    'cybershield.detect_tor_network',
+    'cybershield.verify_api_key',
+    'cybershield.verify_api_signature',
+    'cybershield.verify_api_nonce',
+    'cybershield.verify_api_timestamp',
     'cybershield.detect_sql_injection',
-    'cybershield.log_security_event'
+    'cybershield.api_rate_limiter',
+    'cybershield.verify_api_cost_limit',
+    'cybershield.log_security_event',
+    'cybershield.log_sensitive_access',
 ])->group(function () {
-    Route::post('/order/process', [OrderController::class, 'store']);
+    Route::post('/api/v1/transfer', [BankController::class, 'transfer']);
 });
 ```
 
-### ⚡ Performance Note
-Laravel CyberShield middlewares use **micro-optimized logic**. Even with 5-10 middlewares enabled on a single route, the overhead is negligible (<2ms) due to the use of high-speed cache drivers and signature hashing.
+### 🖊️ Public Registration Form
+```php
+Route::middleware([
+    'cybershield.detect_bot_traffic',
+    'cybershield.detect_spam_signup_bot',
+    'cybershield.detect_headless_browser_bot',
+    'cybershield.detect_form_submission_bot',
+    'cybershield.guest_rate_limiter',
+    'cybershield.detect_geo_restriction',
+])->post('/register', [RegisterController::class, 'store']);
+```
 
-[Go back to README.md](../README.md)
+### 🔐 Admin Panel
+```php
+Route::middleware([
+    'cybershield.allow_whitelisted_ip',        // Office IPs bypass
+    'cybershield.enforce_two_factor_auth',     // 2FA mandatory
+    'cybershield.enforce_trusted_device',      // Known device only
+    'cybershield.admin_rate_limiter',          // Extra throttle
+    'cybershield.log_sensitive_access',        // Full audit
+    'cybershield.log_user_activity',
+])->prefix('admin')->group(function () {
+    // Admin routes
+});
+```
+
+---
+
+## ⚡ Performance Note
+Laravel CyberShield middlewares use **micro-optimized logic**.
+- All `block_*` and `allow_*` middlewares run cache lookups only — sub-millisecond.
+- `detect_*` middlewares use stateless regex — < 0.5ms each.
+- Rate limiting uses atomic cache increments — < 1ms with Redis.
+- Full stack of 10 middlewares: **< 3ms total overhead**.
+
+---
+
+## 🚀 Registry Command
+To see the full list of all 200 dynamic aliases in your running app:
+```bash
+php artisan security:list-middleware
+```
+
+[← Back to Helpers](helpers.md) | [Next: Artisan Commands →](commands.md) | [Back to README](../README.md)

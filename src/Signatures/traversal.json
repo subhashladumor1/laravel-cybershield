@@ -1,0 +1,30 @@
+[
+    {
+        "id": "TRAV-001",
+        "name": "Directory Traversal",
+        "description": "Detects usage of ../ and other path traversal sequences",
+        "severity": "high",
+        "impact_score": 8.5,
+        "patterns": [
+            {
+                "regex": "/(\\.\\.\\/|\\.\\.\\\\)/",
+                "description": "Path traversal sequence"
+            }
+        ],
+        "tags": ["traversal", "filesystem"]
+    },
+    {
+        "id": "TRAV-002",
+        "name": "Absolute Path Exposure",
+        "description": "Detects attempts to access typical absolute paths on Linux/Windows",
+        "severity": "medium",
+        "impact_score": 7.0,
+        "patterns": [
+            {
+                "regex": "/(\\/etc\\/passwd|\\/etc\\/shadow|C:\\\\Windows\\\\System32)/i",
+                "description": "Absolute system paths"
+            }
+        ],
+        "tags": ["traversal", "filesystem", "system"]
+    }
+]

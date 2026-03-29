@@ -137,7 +137,42 @@ if (!function_exists('ip_is_blacklisted')) {
 if (!function_exists('ip_is_whitelisted')) {
     function ip_is_whitelisted(?string $ip = null): bool
     {
-        return in_array($ip ?? real_ip(), (array) config('cybershield.whitelist', []));
+        return check_ip_range($ip ?? real_ip(), (array) config('cybershield.whitelist', []));
+    }
+}
+
+if (!function_exists('check_ip_range')) {
+    /**
+     * Check if an IP address is in a CIDR range or array of ranges.
+     */
+    function check_ip_range(string $ip, string|array $range): bool
+    {
+        if (is_array($range)) {
+            foreach ($range as $r) {
+                if (check_ip_range($ip, $r)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (!str_contains($range, '/')) {
+            return $ip === $range;
+        }
+
+        [$subnet, $bits] = explode('/', $range);
+        
+        $ip_long = ip2long($ip);
+        $subnet_long = ip2long($subnet);
+
+        if ($ip_long === false || $subnet_long === false) {
+            return false;
+        }
+
+        $mask = -1 << (32 - (int) $bits);
+        $subnet_long &= $mask;
+
+        return ($ip_long & $mask) == $subnet_long;
     }
 }
 

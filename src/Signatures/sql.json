@@ -1,14 +1,44 @@
 [
     {
-        "name": "Basic SQLi",
-        "regex": "/(union|select|insert|update|delete|drop|alter|truncate)/i"
+        "id": "SQLI-001",
+        "name": "Basic SQL Injection",
+        "description": "Detects common SQL keywords used in injection attacks",
+        "severity": "critical",
+        "impact_score": 9.5,
+        "patterns": [
+            {
+                "regex": "/(union|select|insert|update|delete|drop|alter|truncate)/i",
+                "description": "Common SQL keywords"
+            }
+        ],
+        "tags": ["sql", "sqli", "owasp"]
     },
     {
-        "name": "Blind SQLi",
-        "regex": "/(sleep|benchmark|waitfor)/i"
+        "id": "SQLI-002",
+        "name": "Blind SQL Injection",
+        "description": "Detects time-delay based SQL injection patterns",
+        "severity": "high",
+        "impact_score": 8.5,
+        "patterns": [
+            {
+                "regex": "/(sleep|benchmark|waitfor)/i",
+                "description": "Time delay functions"
+            }
+        ],
+        "tags": ["sql", "sqli", "blind"]
     },
     {
-        "name": "Comment SQLi",
-        "regex": "/(--|#|\\/\\*)/"
+        "id": "SQLI-003",
+        "name": "SQL Comment Injection",
+        "description": "Detects SQL comment syntax used to truncate queries",
+        "severity": "medium",
+        "impact_score": 6.0,
+        "patterns": [
+            {
+                "regex": "/(--\\s|#\\s|\\/\\*[\\s\\S]*?\\*\\/)/",
+                "description": "SQL comment syntax"
+            }
+        ],
+        "tags": ["sql", "sqli", "comment"]
     }
 ]

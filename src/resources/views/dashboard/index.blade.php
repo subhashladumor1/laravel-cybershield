@@ -1,118 +1,271 @@
-<!DOCTYPE html>
-<html lang="en">
+@extends('cybershield::layouts.app')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberShield Security Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-        }
+@section('title', 'Security Overview')
 
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+@section('content')
+<div class="header flex justify-between items-center mb-8">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">CyberShield Security Dashboard</h1>
+        <p class="text-sm text-slate-500">Real-time threat monitoring and system health</p>
+    </div>
+    <div class="flex items-center gap-4">
+        <span id="refreshTimer" class="text-xs font-mono text-slate-400">Refreshing in 30s</span>
+        <form action="{{ route('cybershield.refresh') }}" method="POST">
+            @csrf
+            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition shadow-sm">
+                Manual Refresh
+            </button>
+        </form>
+    </div>
+</div>
 
-        .accent-gradient {
-            background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-        }
-    </style>
-</head>
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Total Requests</h3>
+        <div id="stat-total_requests" class="text-xl font-bold text-slate-900">{{ number_format($stats['total_requests']) }}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Blocked IPs</h3>
+        <div id="stat-blocked_ips" class="text-xl font-bold text-red-600">{{ number_format($stats['blocked_ips']) }}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Threats Detected</h3>
+        <div id="stat-threats_detected" class="text-xl font-bold text-orange-600">{{ number_format($stats['threats_detected']) }}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Active (1h)</h3>
+        <div id="stat-active_threats" class="text-xl font-bold text-red-700">{{ number_format($stats['active_threats']) }}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Bot Attacks</h3>
+        <div id="stat-botStats" class="text-xl font-bold text-indigo-600">{{ number_format($botStats) }}</div>
+    </div>
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-xs font-semibold text-slate-500 uppercase mb-2">Rate Limits</h3>
+        <div id="stat-rateLimitStats" class="text-xl font-bold text-purple-600">{{ number_format($rateLimitStats) }}</div>
+    </div>
+</div>
 
-<body class="p-8">
-    <div class="max-w-7xl mx-auto">
-        <header class="flex justify-between items-center mb-12">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-slate-800">Traffic Pattern (24h)</h3>
+            <span class="text-xs text-slate-400">Avg Response: <span id="stat-avg_response_time" class="font-bold text-slate-600">{{ $stats['avg_response_time'] }}ms</span></span>
+        </div>
+        <canvas id="trafficChart" height="100"></canvas>
+    </div>
+    
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Security Health</h3>
+        <div class="space-y-6">
             <div>
-                <h1 class="text-4xl font-bold text-transparent bg-clip-text accent-gradient inline-block">Laravel
-                    CyberShield</h1>
-                <p class="text-slate-400 mt-2">Enterprise-Grade Security Engine</p>
+                <div class="flex justify-between mb-1">
+                    <span class="text-sm font-medium text-slate-600">Bot Protection</span>
+                    <span class="text-sm font-bold text-green-600">Active</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                    <div class="bg-green-500 h-1.5 rounded-full" style="width: 100%"></div>
+                </div>
             </div>
-            <div class="glass px-6 py-3 rounded-2xl flex items-center gap-4">
-                <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                <span class="font-semibold text-sm uppercase tracking-wider">System: Protected</span>
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="text-sm font-medium text-slate-600">WAF Status</span>
+                    <span class="text-sm font-bold text-green-600">Filtering</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                    <div class="bg-green-500 h-1.5 rounded-full" style="width: 100%"></div>
+                </div>
             </div>
-        </header>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm font-medium mb-1">Blocked IPs</p>
-                <h2 class="text-3xl font-bold">{{ $stats['blocked_ips'] }}</h2>
-            </div>
-            <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm font-medium mb-1">Attacks Prevented</p>
-                <h2 class="text-3xl font-bold">{{ $stats['attacks_prevented'] }}</h2>
-            </div>
-            <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm font-medium mb-1">API Threats</p>
-                <h2 class="text-3xl font-bold">{{ $stats['api_threats'] }}</h2>
-            </div>
-            <div class="glass p-6 rounded-3xl">
-                <p class="text-slate-400 text-sm font-medium mb-1">Malware Status</p>
-                <h2 class="text-3xl font-bold text-green-400">{{ $stats['malware_status'] }}</h2>
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="text-sm font-medium text-slate-600">Malware Scanner</span>
+                    <span id="stat-malwareStats" class="text-sm font-bold {{ $malwareStats > 0 ? 'text-red-600' : 'text-slate-400' }}">{{ $malwareStats > 0 ? 'Threats Found' : 'Last Scan Clean' }}</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5">
+                    <div class="{{ $malwareStats > 0 ? 'bg-red-500' : 'bg-indigo-500' }} h-1.5 rounded-full" style="width: 100%"></div>
+                </div>
             </div>
         </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 glass rounded-3xl p-8">
-                <h3 class="text-xl font-bold mb-6">Recent Security Events</h3>
-                <div class="space-y-4">
-                    @foreach(range(1, 5) as $i)
-                        <div
-                            class="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl border border-white/5">
-                            <div class="flex items-center gap-4">
-                                <div
-                                    class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                                        stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="font-semibold">SQL Injection Attempt Detected</p>
-                                    <p class="text-xs text-slate-500">IP: 192.168.1.{{ rand(1, 255) }} • {{ rand(1, 60) }}
-                                        mins ago</p>
-                                </div>
-                            </div>
-                            <span
-                                class="text-xs font-bold uppercase py-1 px-3 bg-red-500/10 text-red-500 rounded-full">Blocked</span>
-                        </div>
-                    @endforeach
+        
+        <div class="mt-8 pt-6 border-t border-slate-100">
+            <h4 class="text-sm font-bold text-slate-700 mb-4">System Metrics</h4>
+            @if($metrics['system'])
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-slate-50 p-2 rounded-lg">
+                    <div class="text-xs text-slate-400 mb-1">CPU</div>
+                    <div id="metric-cpu" class="text-sm font-bold text-slate-800">{{ $metrics['system']->cpu_load }}%</div>
+                </div>
+                <div class="bg-slate-50 p-2 rounded-lg">
+                    <div class="text-xs text-slate-400 mb-1">MEM</div>
+                    <div id="metric-mem" class="text-sm font-bold text-slate-800">{{ $metrics['system']->memory_usage }}%</div>
+                </div>
+                <div class="bg-slate-50 p-2 rounded-lg">
+                    <div class="text-xs text-slate-400 mb-1">DISK</div>
+                    <div id="metric-disk" class="text-sm font-bold text-slate-800">{{ $metrics['system']->disk_usage }}%</div>
                 </div>
             </div>
-
-            <div class="glass rounded-3xl p-8">
-                <h3 class="text-xl font-bold mb-6">Threat level</h3>
-                <div class="flex flex-col items-center justify-center h-64">
-                    <div class="relative w-48 h-48">
-                        <svg class="w-full h-full" viewBox="0 0 100 100">
-                            <circle class="text-slate-800" stroke-width="10" stroke="currentColor" fill="transparent"
-                                r="40" cx="50" cy="50" />
-                            <circle class="text-sky-500" stroke-width="10" stroke-dasharray="251.2"
-                                stroke-dashoffset="60" stroke-linecap="round" stroke="currentColor" fill="transparent"
-                                r="40" cx="50" cy="50" />
-                        </svg>
-                        <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="text-4xl font-bold">Low</span>
-                            <span class="text-xs text-slate-500">Overall risk</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-8">
-                    <button
-                        class="w-full py-4 rounded-2xl accent-gradient font-bold shadow-lg shadow-sky-500/20 hover:scale-[1.02] transition-transform">Run
-                        Deep Scan</button>
-                </div>
-            </div>
+            @endif
         </div>
     </div>
-</body>
+</div>
 
-</html>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <h3 class="font-semibold text-slate-800">Recent Threats</h3>
+            <a href="{{ route('cybershield.logs.index') }}" class="text-xs text-indigo-600 hover:underline">View All Logs</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+                    <tr>
+                        <th class="px-6 py-3">Type</th>
+                        <th class="px-6 py-3">IP</th>
+                        <th class="px-6 py-3">Severity</th>
+                        <th class="px-6 py-3">Time</th>
+                    </tr>
+                </thead>
+                <tbody id="recentThreatsList" class="divide-y divide-slate-100">
+                    @forelse($recentThreats as $threat)
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 text-sm font-bold text-slate-700">{{ strtoupper($threat->threat_type) }}</td>
+                        <td class="px-6 py-4 text-sm font-mono">{{ $threat->ip }}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 text-xs font-bold rounded-lg {{ $threat->severity === 'high' ? 'bg-red-100 text-red-700' : ($threat->severity === 'medium' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700') }}">
+                                {{ strtoupper($threat->severity) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-400">{{ $threat->created_at ? $threat->created_at->diffForHumans() : 'N/A' }}</td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="4" class="px-6 py-8 text-center text-slate-400 italic">No threats detected recently.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 bg-slate-50">
+            <h3 class="font-semibold text-slate-800">API Performance</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+                    <tr>
+                        <th class="px-6 py-3">Endpoint</th>
+                        <th class="px-6 py-3">Hits</th>
+                        <th class="px-6 py-3 text-right">Avg Response</th>
+                    </tr>
+                </thead>
+                <tbody id="apiMetricsList" class="divide-y divide-slate-100">
+                    @forelse($metrics['api'] as $api)
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-6 py-4 text-sm font-mono text-slate-600 truncate max-w-xs">{{ $api->endpoint }}</td>
+                        <td class="px-6 py-4 text-sm font-bold text-slate-800">{{ number_format($api->hits) }}</td>
+                        <td class="px-6 py-4 text-right text-sm text-slate-500">{{ number_format($api->avg_response_time, 2) }}ms</td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="3" class="px-6 py-8 text-center text-slate-400 italic">No API metrics captured.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let trafficChart;
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    
+    function initChart(labels, data) {
+        trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Requests',
+                    data: data,
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.05)',
+                    pointBackgroundColor: '#4f46e5',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    initChart({!! json_encode($trafficData->pluck('hour')) !!}, {!! json_encode($trafficData->pluck('count')) !!});
+
+    // Auto-refresh logic
+    let secondsLeft = 30;
+    const timerElement = document.getElementById('refreshTimer');
+
+    setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft <= 0) {
+            refreshData();
+            secondsLeft = 30;
+        }
+        timerElement.innerText = `Refreshing in ${secondsLeft}s`;
+    }, 1000);
+
+    async function refreshData() {
+        try {
+            const response = await fetch(window.location.href, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await response.json();
+
+            // Update stats
+            for (const [key, value] of Object.entries(data.stats)) {
+                const el = document.getElementById(`stat-${key}`);
+                if (el) el.innerText = typeof value === 'number' ? value.toLocaleString() : value;
+            }
+            
+            document.getElementById('stat-botStats').innerText = data.botStats.toLocaleString();
+            document.getElementById('stat-rateLimitStats').innerText = data.rateLimitStats.toLocaleString();
+            
+            const malwareEl = document.getElementById('stat-malwareStats');
+            if (data.malwareStats > 0) {
+                malwareEl.innerText = 'Threats Found';
+                malwareEl.className = 'text-sm font-bold text-red-600';
+            } else {
+                malwareEl.innerText = 'Last Scan Clean';
+                malwareEl.className = 'text-sm font-bold text-slate-400';
+            }
+
+            // Update chart
+            trafficChart.data.labels = data.trafficData.map(d => d.hour);
+            trafficChart.data.datasets[0].data = data.trafficData.map(d => d.count);
+            trafficChart.update();
+
+            // Update system metrics
+            if (data.metrics.system) {
+                document.getElementById('metric-cpu').innerText = `${data.metrics.system.cpu_load}%`;
+                document.getElementById('metric-mem').innerText = `${data.metrics.system.memory_usage}%`;
+                document.getElementById('metric-disk').innerText = `${data.metrics.system.disk_usage}%`;
+            }
+
+            console.log('Dashboard data refreshed');
+        } catch (error) {
+            console.error('Failed to refresh dashboard data:', error);
+        }
+    }
+</script>
+@endsection
