@@ -703,5 +703,3 @@ Built with extreme care for the Laravel community by **[Subhash Ladumor](https:/
 - **PHP**: 8.2+
 - **Laravel**: 10, 11, 12
 - **License**: [MIT](LICENSE)
-
-*For responsible security vulnerability disclosure, please email: [security@cybershield.dev](mailto:security@cybershield.dev)*
