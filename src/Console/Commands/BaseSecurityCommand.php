@@ -7,79 +7,476 @@ use Symfony\Component\Console\Formatter\OutputFormatterStyle;
 
 abstract class BaseSecurityCommand extends Command
 {
-    protected $packageName = 'CyberShield';
-    protected $version = '1.0.0';
+    protected string $packageName = 'CyberShield';
+    protected string $version = '1.0.1';
 
-    /**
-     * Display the CyberShield Header
-     */
-    protected function displayHeader()
+    // ─── Color Themes (fg accent, highlight, dim) ───────�   
+    private static array $themes = [
+        'matrix' => ['acc' => 'green', 'hi' => 'green', 'tag' => 'black', 'tagbg' => 'green'],
+        'plasma' => ['acc' => 'cyan', 'hi' => 'white', 'tag' => 'black', 'tagbg' => 'cyan'],
+        'flame' => ['acc' => 'red', 'hi' => 'yellow', 'tag' => 'white', 'tagbg' => 'red'],
+        'aurora' => ['acc' => 'magenta', 'hi' => 'cyan', 'tag' => 'black', 'tagbg' => 'magenta'],
+        'solar' => ['acc' => 'yellow', 'hi' => 'white', 'tag' => 'black', 'tagbg' => 'yellow'],
+        'ice' => ['acc' => 'blue', 'hi' => 'cyan', 'tag' => 'white', 'tagbg' => 'blue'],
+        'cyberpunk' => ['acc' => 'magenta', 'hi' => 'yellow', 'tag' => 'black', 'tagbg' => 'cyan'],
+        'deepspace' => ['acc' => 'blue', 'hi' => 'white', 'tag' => 'white', 'tagbg' => 'blue'],
+    ];
+
+    // ─── Random taglines ────────────────────────────────────────────────────
+    private static array $taglines = [
+        '⚡ Enterprise-Grade Security for Laravel Applications',
+        '🛡️  Protect. Detect. Respond. — Powered by CyberShield',
+        '🔒 Zero-Trust Security Architecture · Battle-Tested',
+        '🚀 Real-Time Threat Intelligence & Active Defense',
+        '🎯 Precision Security Controls · Developer-First Design',
+        '🌐 Full-Stack Security from WAF to Rate Limiter to Bot Defense',
+        '🦾 Hardening your Laravel Core with Artificial Intelligence',
+        '🛡️  Ironclad Protection for Modern Web Architectures',
+        '⚡ Defending your codebase while you sleep',
+        '🔒 Security isn\'t an option, it\'s a foundation',
+        '🦾 Advanced Heuristics · Real-time Mitigation',
+        '🎯 Zero-False Positive Mission · High-Fidelity Protection',
+        '🌐 Global Threat Intel · Local Enforcement',
+        '🚀 Hyper-Fast Middleware · Zero Latency Security',
+    ];
+
+    // ─── Large ASCII banners (10 styles) ───────────────────────────────────
+    private static array $banners = [
+
+        // ① BIG BLOCK — closest to the lab terminal pixel style
+        'bigblock' => [
+            '  ██████╗██╗   ██╗██████╗ ███████╗██████╗ ███████╗██╗  ██╗██╗███████╗██╗     ██████╗ ',
+            ' ██╔════╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔══██╗██╔════╝██║  ██║██║██╔════╝██║     ██╔══██╗',
+            ' ██║      ╚████╔╝ ██████╔╝█████╗  ██████╔╝███████╗███████║██║█████╗  ██║     ██║  ██║',
+            ' ██║       ╚██╔╝  ██╔══██╗██╔══╝  ██╔══██╗╚════██║██╔══██║██║██╔══╝  ██║     ██║  ██║',
+            ' ╚██████╗   ██║   ██████╔╝███████╗██║  ██║███████║██║  ██║██║███████╗███████╗██████╔╝ ',
+            '  ╚═════╝   ╚═╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚═════╝  ',
+        ],
+
+        // ② DOUBLE BOX — heavy double-line framed
+        'doublebox' => [
+            '  ╔══╗╦ ╦╔══╗╔══╗╦═╗╔═══╗╦ ╦╦╔══╗╦  ╔══╗',
+            '  ║    ╚╦╝ ╠═╣ ╠═╣╠╦╝╚══╗ ╠═╣║╠═╣ ║   ║║ ',
+            '  ╚══╝  ╩  ╩ ╩ ╩ ╩╩╚═╚══╝ ╩ ╩╩╚══╝╩═╝╚══╝',
+            '  ╔══════════════════════════════════════╗',
+            '  ║  C Y B E R S H I E L D   S E C U R I T Y ║',
+            '  ╚══════════════════════════════════════╝',
+        ],
+
+        // ③ SLANT — angled style
+        'slant' => [
+            '   ______      __               _____ __    _      __    __    ',
+            '  / ____/_  __/ /_  ___  _____/ ___// /_  (_)__  / /___/ /   ',
+            ' / /   / / / / __ \/ _ \/ ___/\__ \/ __ \/ / _ \/ / __  /    ',
+            '/ /___/ /_/ / /_/ /  __/ /   ___/ / / / / /  __/ / /_/ /     ',
+            '\____/\__, /_.___/\___/_/   /____/_/ /_/_/\___/_/\__,_/      ',
+            '     /____/                                                    ',
+        ],
+
+        // ④ ELECTRONIC — modern tech style
+        'electronic' => [
+            '  ▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜▟▛▙▜',
+            '  █  CyberShield Security Platform   █',
+            '  █      Enterprise Grade v2.0       █',
+            '  ▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜▙▟▛▜',
+        ],
+
+        // ⑤ CYBERSHIELD — creative typography
+        'cybershield_art' => [
+            '   _____      _               _____ _     _      _     _ ',
+            '  / ____|    | |             / ____| |   (_)    | |   | |',
+            ' | |    _   _| |__   ___ _ _| (___ | |__  _  ___| | __| |',
+            ' | |   | | | | \'_ \ / _ \ \'__\___ \| \'_ \| |/ _ \ |/ _` |',
+            ' | |___| |_| | |_) |  __/ |  ____) | | | | |  __/ | (_| |',
+            '  \_____\__, |_.__/ \___|_| |_____/|_| |_|_|\___|_|\__,_|',
+            '         __/ |                                           ',
+            '        |___/                                            ',
+        ],
+
+        // ⑥ MODERN — clean and sharp
+        'modern' => [
+            '  ◢◤  CyberShield Security :: Active Intelligence  ◢◤',
+            '  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■',
+        ],
+
+        // ⑦ GLITCH — heavy digital look
+        'glitch' => [
+            '  ░█▀▀░█░█░█▀▄░█▀▀░█▀▄░█▀▀░█░█░█░█▀▀░█░░░█▀▄',
+            '  ░█░░░░█░░█▀▄░█▀▀░█▀▄░▀▀█░█▀█░█░█▀▀░█░░░█░█',
+            '  ░▀▀▀░░▀░░▀▀░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀░▀▀▀░▀▀▀░▀▀░',
+        ],
+
+        // ⑧ SHADOW — with drop shadow blocks
+        'shadow' => [
+            ' ░█████╗░██╗░░░██╗██████╗░███████╗██████╗░░██████╗██╗░░██╗██╗███████╗██╗░░░░░██████╗░',
+            ' ██╔══██╗╚██╗░██╔╝██╔══██╗██╔════╝██╔══██╗██╔════╝██║░░██║██║██╔════╝██║░░░░░██╔══██╗',
+            ' ██║░░╚═╝░╚████╔╝░██████╦╝█████╗░░██████╔╝╚█████╗░███████║██║█████╗░░██║░░░░░██║░░██║',
+            ' ██║░░██╗░░╚██╔╝░░██╔══██╗██╔══╝░░██╔══██╗░╚═══██╗██╔══██║██║██╔══╝░░██║░░░░░██║░░██║',
+            ' ╚█████╔╝░░░██║░░░██████╦╝███████╗██║░░██║██████╔╝██║░░██║██║███████╗███████╗██████╔╝',
+            ' ░╚════╝░░░░╚═╝░░░╚═════╝░╚══════╝╚═╝░░╚═╝╚═════╝░╚═╝░░╚═╝╚═╝╚══════╝╚══════╝╚═════╝░',
+        ],
+
+        // ⑨ CLASSIC — classic chunky
+        'classic' => [
+            '  ######  ##    ## ########  ######## ########   ######  ##     ## #### ######## ##       ##     ## ',
+            ' ##    ##  ##  ##  ##     ## ##       ##     ## ##    ## ##     ##  ##  ##       ##       ##     ## ',
+            ' ##         ####   ##     ## ##       ##     ## ##       ##     ##  ##  ##       ##       ##     ## ',
+            ' ##          ##    ########  ######   ########   ######  #########  ##  ######   ##       ##     ## ',
+            ' ##          ##    ##     ## ##       ##   ##         ## ##     ##  ##  ##       ##       ##     ## ',
+            ' ##    ##    ##    ##     ## ##       ##    ##  ##    ## ##     ##  ##  ##       ##       ##     ## ',
+            '  ######     ##    ########  ######## ##     ##  ######  ##     ## #### ######## ########  #######  ',
+        ],
+
+        // ⑩ STAR — with sparkle dividers
+        'star' => [
+            ' ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★',
+            '  ▄████▄  ▄██   ██▄ ██████  ▄████▄  ██████ ██████ ██  ██ ██ ██████ ██     ██████ ',
+            '  ██  ▀█ ██ ▀█ █▀ ██ ██  ██ ██  ▀█ ██  ██ ██  ██ ██  ██ ██ ██     ██     ██  ██ ',
+            '  ██      ██  ▀▀  ██ ██████ ██      ████   ██████ ██████ ██ ████   ██     ██  ██ ',
+            '  ██  ▄█  ██      ██ ██  ██ ██  ▄█  ██  ██ ██  ██ ██  ██ ██ ██     ██     ██  ██ ',
+            '  ▀████▀  ██      ██ ██████ ▀████▀ ██████ ██  ██ ██  ██ ██ ██████ ██████ ██████ ',
+            ' ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★',
+        ],
+
+        // ⑪ MINIMALIST
+        'minimalist' => [
+            '  [ CYBERSHIELD SECURITY ENGINE ] ──────────────────────────────────────────',
+            '  PROTECTION: ACTIVE | THREAT LEVEL: NEUTRAL | STATUS: OPTIMIZED',
+        ],
+
+        // ⑫ MATRIX
+        'matrix_code' => [
+            '  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ',
+            '  :  ██▀▀▀█ ▀▄ ▄▀ ██▀▀▀█ ██▀▀▀█ ▄▀▀▀▀▄ ██  ██ ██▀▀▀█ ██   ██▀▀▀▄ :',
+            '  :  ██    ░ █ ░  ██▀▀▀█ ██▀▀▀  ▀▀▀▀▄▄ ██▀▀██ ██▀▀▀  ██   ██  ██ :',
+            '  :  ▀▀▀▀▀▀  █    ▀▀▀▀▀▀ ▀▀▀▀▀▀ ▀▀▀▀▀▀ ▀▀  ▀▀ ▀▀▀▀▀▀ ▀▀▀▀ ▀▀▀▀▀  :',
+            '  \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' ',
+        ],
+
+        // ⑬ HACKER
+        'hacker' => [
+            '  01000011 01111001 01100010 01100101 01110010 01010011 01101000 ',
+            '  ██████╗██╗   ██╗██████╗ ███████╗██████╗ ███████╗██╗  ██╗██╗███████╗██╗     ██████╗ ',
+            '  ██╔════╝╚██╗ ██╔╝██╔══██╗██╔════╝██╔══██╗██╔════╝██║  ██║██║██╔════╝██║     ██╔══██╗',
+            '  ██║      ╚████╔╝ ██████╔╝█████╗  ██████╔╝███████╗███████║██║█████╗  ██║     ██║  ██║',
+            '  ██║       ╚██╔╝  ██╔══██╗██╔══╝  ██╔══██╗╚════██║██╔══██║██║██╔══╝  ██║     ██║  ██║',
+            '  ╚██████╗   ██║   ██████╔╝███████╗██║  ██║███████║██║  ██║██║███████╗███████╗██████╔╝',
+            '  01101001 01100101 01101100 01100100 00100000 01010110 00110010 ',
+        ],
+
+        // ⑭ FORTRESS
+        'fortress' => [
+            '       / \             LARAVEL CYBERSHIELD             / \      ',
+            '      | o |           ---------------------           | o |     ',
+            '     _|   |_         🛡️  PROTECTING CORE  🛡️         _|   |_    ',
+            '    |_______|       BATTLE-TESTED SECURITY       |_______|    ',
+        ],
+
+        // ⑮ CIRCUIT
+        'circuit' => [
+            '  ───┐ [ CYBERSHIELD ] ┌───────────────────────────────────────────────┐',
+            '     │    ▇▇▇▇▇▇▇▇▇    │  ACTIVE INTELLIGENCE & THREAT MITIGATION    │',
+            '  ───┴───[  SECURE  ]──┴───────────────────────────────────────────────┘',
+        ],
+
+        // ⑯ NEON
+        'neon_light' => [
+            '   ▄████▄   ██  ██  ██████   ███████  ██████    ███████  ██  ██  ██  ███████  ██       ██████   ',
+            '  ██▀  ▀██  ██  ██  ██   ██  ██       ██   ██   ██       ██  ██  ██  ██       ██       ██   ██  ',
+            '  ██        ██████  ██████   █████    ██████    ███████  ██████  ██  █████    ██       ██   ██  ',
+            '  ██▄  ▄██      ██  ██   ██  ██       ██   ██        ██  ██  ██  ██  ██       ██       ██   ██  ',
+            '   ▀████▀       ██  ██████   ███████  ██   ██   ███████  ██  ██  ██  ███████  ███████  ██████   ',
+        ],
+
+        // ⑰ PIXEL
+        'pixel' => [
+            '  █▀▀ █ █ █▀▄ █▀▀ █▀▄ █▀▀ █ █ █ █▀▀ █   █▀▄',
+            '  █   ▀▄▀ █▀▄ █▀▀ █▀▄ ▀▀█ █▀█ █ █▀▀ █   █ █',
+            '  ▀▀▀  ▀  ▀▀  ▀▀▀ ▀ ▀ ▀▀▀ ▀ ▀ ▀ ▀▀▀ ▀▀▀ ▀▀ ',
+        ],
+
+        // ⑱ INDUSTRIAL
+        'industrial' => [
+            '  / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / ',
+            '  //  C Y B E R S H I E L D   |   A C T I V E   S E C U R I T Y    //',
+            '  / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / ',
+        ],
+
+        // ⑲ TECHNO
+        'techno' => [
+            '   _____       _               _____ _     _      _     _ ',
+            '  / ____|     | |             / ____| |   (_)    | |   | |',
+            ' | |    _   _ | |__   ___ _ _| (___ | |__  _  ___| | __| |',
+            ' | |   | | | || \'_ \ / _ \ \'__\___ \| \'_ \| |/ _ \ |/ _` |',
+            ' | |___| |_| || |_) |  __/ |  ____) | | | | |  __/ | (_| |',
+            '  \_____\__, ||_.__/ \___|_| |_____/|_| |_|_|\___|_|\__,_|',
+            '         __/ |                                           ',
+            '        |___/                                            ',
+        ],
+
+        // ⑳ SOLID
+        'solid' => [
+            '  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄',
+            '  █  [ GUARD ]  CYBERSHIELD :: SECURITY CORE v2.0.0            █',
+            '  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀',
+        ],
+
+        // ㉑ RETRO
+        'retro' => [
+            '  <<<<<<<<<<<<<<<<<<<<<<<<<< CYBERSHIELD >>>>>>>>>>>>>>>>>>>>>>>>>>',
+            '  ---  INITIALIZING SECURITY PROTOCOLS V2.0.0 OPERATION: OK  ---',
+            '  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
+        ],
+
+        // ㉓ ENCRYPTION
+        'encryption' => [
+            '  [ AUTH ] ████████████████████████████████████████████████████ [ OK ]',
+            '  [ SEC  ] 🔑 CYBERSHIELD :: ADVANCED CRYPTOGRAPHIC LAYER ACTIVE      ',
+        ],
+
+        // ㉔ WAVES
+        'waves' => [
+            '  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ',
+            '  (  Cyber  )  (  Shield  )  (  Security  )  (  Platform  )           ',
+            '  \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' \' ',
+        ],
+
+        // ㉕ HORIZON
+        'horizon' => [
+            '  ____________________________________________________________________',
+            '  |                                                                  |',
+            '  |   C Y B E R S H I E L D   ::   B E Y O N D   B O R D E R S       |',
+            '  |__________________________________________________________________|',
+        ],
+    ];
+
+    private static string $chosenThemeName = 'plasma';
+    private static array $chosenTheme = ['acc' => 'cyan', 'hi' => 'white', 'tag' => 'black', 'tagbg' => 'cyan'];
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Public API
+    // ────────────────────────────────────────────────────────────────────────
+
+    protected function displayHeader(): void
     {
-        $colors = ['blue', 'cyan', 'magenta', 'red', 'yellow', 'green'];
-        $randomColor = $colors[array_rand($colors)];
+        // Pick random theme + banner + tagline
+        $themeNames = array_keys(self::$themes);
+        self::$chosenThemeName = $themeNames[array_rand($themeNames)];
+        self::$chosenTheme = self::$themes[self::$chosenThemeName];
 
-        $this->output->getFormatter()->setStyle('title', new OutputFormatterStyle($randomColor, null, ['bold']));
-        $this->output->getFormatter()->setStyle('package', new OutputFormatterStyle('white', $randomColor, ['bold']));
+        $bannerKeys = array_keys(self::$banners);
+        $bannerKey = $bannerKeys[array_rand($bannerKeys)];
+        $banner = self::$banners[$bannerKey];
+        $tagline = self::$taglines[array_rand(self::$taglines)];
 
-        $this->line("");
-        $this->line(" <package> {$this->packageName} </package> <title>v{$this->version} - Security Suite</title>");
-        $this->line(" <fg=gray>====================================================</>");
-        $this->line("");
+        $this->registerStyles(self::$chosenTheme);
+        $this->renderBanner($banner, $tagline, $bannerKey);
     }
 
-    /**
-     * Run a scan step with a progress indicator
-     */
-    protected function runScanStep($label, $callback)
+    // ────────────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ────────────────────────────────────────────────────────────────────────
+
+    private function registerStyles(array $t): void
     {
-        $this->output->write(" <fg=cyan>➜</> {$label} " . str_repeat('.', 30 - strlen($label)) . " ");
+        $f = $this->output->getFormatter();
+        $f->setStyle('acc', new OutputFormatterStyle($t['acc'], null, ['bold']));
+        $f->setStyle('accbg', new OutputFormatterStyle($t['tag'], $t['tagbg'], ['bold']));
+        $f->setStyle('hi', new OutputFormatterStyle($t['hi'], null, ['bold']));
+        $f->setStyle('dim', new OutputFormatterStyle('gray', null, []));
+        $f->setStyle('ok', new OutputFormatterStyle('green', null, ['bold']));
+        $f->setStyle('warn', new OutputFormatterStyle('yellow', null, ['bold']));
+        $f->setStyle('fail', new OutputFormatterStyle('red', null, ['bold']));
+        $f->setStyle('box', new OutputFormatterStyle($t['acc'], null, []));
+        $f->setStyle('num', new OutputFormatterStyle('yellow', null, ['bold']));
+        $f->setStyle('lbl', new OutputFormatterStyle('white', null, []));
+        $f->setStyle('tag2', new OutputFormatterStyle('black', 'yellow', ['bold']));
+        $f->setStyle('tag3', new OutputFormatterStyle('black', 'green', ['bold']));
+        $f->setStyle('tag4', new OutputFormatterStyle('black', 'red', ['bold']));
+        $f->setStyle('sec', new OutputFormatterStyle($t['acc'], null, ['bold', 'underscore']));
+    }
+
+    private function renderBanner(array $banner, string $tagline, string $style): void
+    {
+        $t = self::$chosenTheme;
+        $this->line('');
+
+        // Special decorators for specific styles
+        $glowStyles = ['star', 'classic', 'hacker', 'matrix_code', 'neon_light', 'encryption', 'waves'];
+        if (in_array($style, $glowStyles)) {
+            foreach ($banner as $i => $line) {
+                // Alternating intensity trick for glow effect
+                if ($i % 2 === 0) {
+                    $this->line("  <acc>{$line}</acc>");
+                } else {
+                    $this->line("  <hi>{$line}</hi>");
+                }
+            }
+        } elseif ($style === 'doublebox') {
+            foreach ($banner as $i => $line) {
+                $this->line("  <acc>" . ($i >= 3 ? "<hi>" : '') . "{$line}" . ($i >= 3 ? "</hi>" : '') . "</acc>");
+            }
+        } else {
+            foreach ($banner as $line) {
+                $this->line("  <acc>{$line}</acc>");
+            }
+        }
+
+        $this->line('');
+
+        // ── Info bar ───────────────────────────────────────────────────────
+        $themeName = strtoupper(self::$chosenThemeName);
+        $this->line(
+            "  <accbg>  ⚡ CYBERSHIELD  </accbg>  " .
+            "<hi>v{$this->version}</hi>  <dim>·</dim>  " .
+            "<hi>LARAVEL</hi> <dim>" . app()->version() . "</dim>  <dim>·</dim>  " .
+            "<hi>PHP</hi> <dim>" . PHP_VERSION . "</dim>  <dim>·</dim>  " .
+            "<acc>{$themeName} EDITION</acc>"
+        );
+
+        // ── Tagline ────────────────────────────────────────────────────────
+        $this->line("  <dim>{$tagline}</dim>");
+
+        // ── Separator ─────────────────────────────────────────────────────
+        $author = "BY SUBHASH LADUMOR";
+        $sep = str_repeat('━', 88 - mb_strlen($author) - 4);
+        $this->line("  <box>━</box> <dim>{$author}</dim> <box>{$sep}</box>");
+        $this->line('');
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Section helpers used by subclasses
+    // ────────────────────────────────────────────────────────────────────────
+
+    protected function sectionTitle(string $title, string $icon = '◈'): void
+    {
+        $width = 70;
+        $inner = " {$icon}  {$title} ";
+        $pad = max(0, $width - mb_strlen($inner));
+
+        $this->line('');
+        $this->line("  <box>┌" . str_repeat('─', $width) . "┐</box>");
+        $this->line("  <box>│</box><acc>{$inner}</acc>" . str_repeat(' ', $pad) . "<box>│</box>");
+        $this->line("  <box>└" . str_repeat('─', $width) . "┘</box>");
+        $this->line('');
+    }
+
+    protected function runScanStep(string $label, callable $callback): mixed
+    {
+        $dots = max(2, 52 - mb_strlen($label));
+        $this->output->write("  <box>│</box> <hi>{$label}</hi><dim>" . str_repeat('·', $dots) . "</dim>");
 
         $result = $callback();
 
         if ($result === true || (is_array($result) && count($result) === 0)) {
-            $this->line("<fg=green;options=bold>DONE</>");
+            $this->line(" <ok>✔ PASS</ok>");
             return true;
         } else {
             $count = is_array($result) ? count($result) : 1;
-            $this->line("<fg=yellow;options=bold>{$count} ISSUE(S)</>");
+            $this->line(" <warn>⚠ {$count} ISSUE" . ($count > 1 ? 'S' : '') . "</warn>");
             return $result;
         }
     }
 
-    /**
-     * Print a summary of findings
-     */
-    protected function printSummary(array $findings)
+    protected function printSummary(array $findings): void
     {
-        $this->line("");
-        $this->line(" <fg=white;bg=blue;options=bold> SCAN SUMMARY </>");
-        $this->line(" <fg=gray>----------------------------------------------------</>");
+        $totalIssues = array_sum(array_map(
+            fn($v) => is_array($v) ? count($v) : 0,
+            $findings
+        ));
 
-        $totalIssues = 0;
+        $passed = count(array_filter($findings, fn($v) => $v === true || (is_array($v) && count($v) === 0)));
+        $failed = count($findings) - $passed;
+        $score = count($findings) > 0
+            ? min(100, (int) (($passed / count($findings)) * 100))
+            : 100;
+
+        $scoreColor = $score >= 90 ? 'ok' : ($score >= 70 ? 'warn' : 'fail');
+        $scoreBar = $this->buildScoreBar($score);
+
+        $this->line('');
+        $this->line("  <box>╔" . str_repeat('═', 70) . "╗</box>");
+        $this->line("  <box>║</box>  <hi>◈  SECURITY SCAN RESULTS</hi>" . str_repeat(' ', 45) . "<box>║</box>");
+        $this->line("  <box>╠" . str_repeat('═', 70) . "╣</box>");
+
+        // Score line
+        $scoreStr = "  Score: <{$scoreColor}>{$score}/100</{$scoreColor}>";
+        $this->line("  <box>║</box>  {$scoreStr}   {$scoreBar}  <dim>({$passed} passed · {$failed} failed)</dim>  <box>║</box>");
+        $this->line("  <box>╠" . str_repeat('═', 70) . "╣</box>");
+
+        // Category rows
         foreach ($findings as $category => $issues) {
-            if (is_array($issues)) {
-                $count = count($issues);
-                $totalIssues += $count;
-                if ($count > 0) {
-                    $this->line(" <fg=yellow>⚠ {$category}:</> <fg=white>{$count} potential risks found.</>");
-                    foreach ($issues as $issue) {
-                        $this->line("   <fg=gray>└</> <fg=red>{$issue}</>");
-                    }
-                } else {
-                    $this->line(" <fg=green>✔ {$category}:</> <fg=gray>No issues found.</>");
-                }
+            if (!is_array($issues))
+                continue;
+
+            $count = count($issues);
+            $catPad = str_repeat(' ', max(1, 30 - mb_strlen($category)));
+
+            if ($count === 0) {
+                $statusTag = "<ok>  ✔  PASS  </ok>";
+            } elseif ($count <= 3) {
+                $statusTag = "<warn>  ⚠  WARN  </warn>";
+            } else {
+                $statusTag = "<fail>  ✗  FAIL  </fail>";
+            }
+
+            $countStr = $count > 0 ? "<warn>{$count} issue" . ($count > 1 ? 's' : '') . "</warn>" : "<ok>none</ok>";
+            $this->line("  <box>║</box>  {$statusTag}  <hi>{$category}</hi>{$catPad}{$countStr}" . str_repeat(' ', max(1, 16 - mb_strlen((string) $count) - 6 - ($count > 1 ? 1 : 0))) . "<box>║</box>");
+
+            foreach (array_slice($issues, 0, 3) as $issue) {
+                $issueStr = is_array($issue) ? implode(', ', $issue) : (string) $issue;
+                $truncated = mb_strlen($issueStr) > 60 ? mb_substr($issueStr, 0, 57) . '...' : $issueStr;
+                $this->line("  <box>║</box>       <dim>└─</dim> <fail>{$truncated}</fail>" . str_repeat(' ', max(1, 58 - mb_strlen($truncated))) . "<box>║</box>");
+            }
+            if (count($issues) > 3) {
+                $remaining = count($issues) - 3;
+                $this->line("  <box>║</box>         <dim>… and {$remaining} more issue" . ($remaining > 1 ? 's' : '') . "</dim>" . str_repeat(' ', max(1, 55 - mb_strlen((string) $remaining))) . "<box>║</box>");
             }
         }
 
-        $this->line(" <fg=gray>----------------------------------------------------</>");
-        if ($totalIssues > 0) {
-            $this->line(" <fg=white;bg=red;options=bold> TOTAL ISSUES: {$totalIssues} </>");
-            $this->warn("\n Security risk detected! Please review the findings above.");
+        $this->line("  <box>╠" . str_repeat('═', 70) . "╣</box>");
+
+        // Final verdict
+        if ($totalIssues === 0) {
+            $verdict = "  ✔  ALL CHECKS PASSED — Application is secure!";
+            $this->line("  <box>║</box>  <ok>{$verdict}</ok>" . str_repeat(' ', max(1, 68 - mb_strlen($verdict))) . "<box>║</box>");
+            $this->line("  <box>╚" . str_repeat('═', 70) . "╝</box>");
+            $this->line('');
+            $this->line("  <dim>┌─ Tip ─────────────────────────────────────────────────────────────┐</dim>");
+            $this->line("  <dim>│  Run  php artisan cybershield  to open the control panel.         │</dim>");
+            $this->line("  <dim>└───────────────────────────────────────────────────────────────────┘</dim>");
         } else {
-            $this->line(" <fg=white;bg=green;options=bold> SYSTEM SECURE </>");
-            $this->info("\n All scans passed. Your Laravel application looks secure!");
+            $pl = $totalIssues > 1 ? 'ISSUES' : 'ISSUE';
+            $verdict = "  ✗  {$totalIssues} {$pl} FOUND — Review and remediate above findings.";
+            $this->line("  <box>║</box>  <fail>{$verdict}</fail>" . str_repeat(' ', max(1, 68 - mb_strlen($verdict))) . "<box>║</box>");
+            $this->line("  <box>╚" . str_repeat('═', 70) . "╝</box>");
+            $this->line('');
+            $this->line("  <warn>┌─ Action Required ─────────────────────────────────────────────────┐</warn>");
+            $this->line("  <warn>│  Run  php artisan security:scan:fix  to attempt auto-fix.          │</warn>");
+            $this->line("  <warn>│  Run  php artisan cybershield         to open the control panel.   │</warn>");
+            $this->line("  <warn>└───────────────────────────────────────────────────────────────────┘</warn>");
         }
-        $this->line("");
+
+        $this->line('');
+    }
+
+    private function buildScoreBar(int $score): string
+    {
+        $filled = (int) ($score / 5);  // 20 chars total
+        $empty = 20 - $filled;
+        $bar = str_repeat('█', $filled) . str_repeat('░', $empty);
+        $color = $score >= 90 ? 'ok' : ($score >= 70 ? 'warn' : 'fail');
+        return "<{$color}>[{$bar}]</{$color}>";
+    }
+
+    protected function infoTable(string $title, array $rows, string $icon = '☰'): void
+    {
+        $this->sectionTitle($title, $icon);
+        foreach ($rows as [$key, $val, $color]) {
+            $keyPad = str_repeat(' ', max(1, 30 - mb_strlen($key)));
+            $colored = "<{$color}>{$val}</{$color}>";
+            $this->line("  <dim>│</dim>  <hi>{$key}</hi>{$keyPad}{$colored}");
+        }
+        $this->line('');
     }
 }
-
