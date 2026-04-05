@@ -569,10 +569,11 @@ if (!function_exists('log_threat_event')) {
     {
         Log::warning("CyberShield Threat Detected: [$type]", array_merge(['ip' => real_ip(), 'ua' => Request::userAgent()], $meta));
         try {
-            DB::table('security_logs')->insert([
+            DB::table('cybershield_threat_logs')->insert([
                 'ip' => real_ip(),
-                'event_type' => $type,
-                'metadata' => json_encode($meta),
+                'threat_type' => $type,
+                'severity' => $meta['severity'] ?? 'medium',
+                'details' => json_encode($meta),
                 'created_at' => now()
             ]);
         } catch (\Exception) {
@@ -667,7 +668,7 @@ if (!function_exists('is_rce_injection')) {
 if (!function_exists('is_lfi_injection')) {
     function is_lfi_injection(string $s): bool
     {
-        return (bool) preg_match('/\.\.\/|\.\.\\\|\/etc\/passwd|\/etc\/shadow|C:\\Windows\\/i', $s);
+        return (bool) preg_match('/\.\.\/|\.\.\\\|\/etc\/passwd|\/etc\/shadow|C:\\\\Windows\\\\/i', $s);
     }
 }
 

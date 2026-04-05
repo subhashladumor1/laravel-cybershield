@@ -4,6 +4,7 @@ namespace CyberShield\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use CyberShield\Console\Commands\SecurityScanCommand;
+use CyberShield\Console\Commands\CyberShieldCommand;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Str;
@@ -173,6 +174,7 @@ class CyberShieldServiceProvider extends ServiceProvider
         $this->commands([
             SecurityScanCommand::class,
             \CyberShield\Console\Commands\ListMiddlewareCommand::class,
+            CyberShieldCommand::class,
         ]);
 
         $dynamicCommands = $this->getSecurityCommands();

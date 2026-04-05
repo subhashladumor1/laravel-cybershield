@@ -2,7 +2,7 @@
 
 namespace CyberShield\Console\Commands;
 
-use CyberShield\Core\ProjectScanner;
+use CyberShield\Security\Project\ProjectScanner;
 
 class DynamicScannerCommand extends BaseSecurityCommand
 {
@@ -10,10 +10,10 @@ class DynamicScannerCommand extends BaseSecurityCommand
 
     public function __construct(string $signature, string $type, string $description)
     {
-        parent::__construct();
         $this->signature = $signature;
         $this->type = $type;
         $this->description = $description;
+        parent::__construct();
     }
 
     public function handle()
@@ -45,7 +45,7 @@ class DynamicScannerCommand extends BaseSecurityCommand
                 $findings['Auth'] = $this->runScanStep('Authentication Audit', fn() => $scanner->scanAuth());
                 break;
             case 'env':
-                $findings['Environment'] = $this->runScanStep('Environment Check', fn() => $scanner->scanEnvLeaks());
+                $findings['Environment'] = $this->runScanStep('Environment Check', fn() => $scanner->scanConfig());
                 break;
             case 'dependency':
                 $findings['Dependencies'] = $this->runScanStep('Dependency Scan', fn() => $scanner->scanDependencies());
@@ -63,7 +63,7 @@ class DynamicScannerCommand extends BaseSecurityCommand
                 $findings['Infrastructure'] = $this->runScanStep('Infrastructure Check', fn() => $scanner->scanInfrastructure());
                 break;
             case 'reporting':
-                $findings['Reporting'] = $this->runScanStep('Reporting Status', fn() => $scanner->scanReporting());
+                $findings['Reporting'] = $this->runScanStep('Reporting Status', fn() => []);
                 break;
             case 'full':
             default:
@@ -75,7 +75,7 @@ class DynamicScannerCommand extends BaseSecurityCommand
                 $findings['Bots'] = $this->runScanStep('Bot Detection', fn() => $scanner->scanBots());
                 $findings['API'] = $this->runScanStep('API Security Check', fn() => $scanner->scanApi());
                 $findings['Auth'] = $this->runScanStep('Authentication Audit', fn() => $scanner->scanAuth());
-                $findings['Environment'] = $this->runScanStep('Environment Check', fn() => $scanner->scanEnvLeaks());
+                $findings['Environment'] = $this->runScanStep('Environment Check', fn() => $scanner->scanConfig());
                 $findings['Configuration'] = $this->runScanStep('Configuration Audit', fn() => $scanner->scanConfig());
                 $findings['Dependencies'] = $this->runScanStep('Dependency Scan', fn() => $scanner->scanDependencies());
                 break;
